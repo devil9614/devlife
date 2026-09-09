@@ -303,3 +303,54 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .adv[open]{padding-bottom:12px}
 .adv select,.adv input{width:100%;margin-bottom:8px}
 .adv input:last-child{margin-bottom:0}
+
+/* ---------- people ---------- */
+.person{display:flex;gap:12px;align-items:center;padding:12px;margin-bottom:8px;
+  background:linear-gradient(180deg,var(--surface),var(--surface-2));
+  border:1px solid var(--line);border-radius:14px}
+.person.gone{opacity:.45}
+.pf{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
+  font-family:var(--mono);font-size:13px;font-weight:700;color:var(--brand);
+  background:#0e2b22;border:1px solid #1c5a45}
+.person.gone .pf{background:var(--raised);border-color:var(--line-2);color:var(--ink-3)}
+.pb{min-width:0;flex:1}
+.pn{font-weight:650;font-size:14.5px;letter-spacing:-.01em}
+.pr{font-size:11.5px;color:var(--ink-3);font-family:var(--mono);margin-top:1px}
+.ptags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.ptag{font-family:var(--mono);font-size:9.5px;padding:3px 7px;border-radius:6px;
+  background:#0d1219;border:1px solid var(--line);color:var(--ink-2)}
+.ptag.good{color:#5ce0aa;border-color:#1b4a38}
+.ptag.bad{color:var(--amber);border-color:#5a4416}
+.ptag.skill{color:var(--blue);border-color:#1f3d5c}
+.ptag.mood-good{color:#5ce0aa;border-color:#1b4a38}
+.ptag.mood-mid{color:var(--ink-2)}
+.ptag.mood-bad{color:var(--rose);border-color:#4a222b}
+
+/* ---------- depth pass: kill the flat uniform card stack ---------- */
+.feed{
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(34,211,154,.035), transparent 60%),
+    transparent;
+}
+.ent{
+  background:linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  box-shadow:0 2px 0 rgba(0,0,0,.28), 0 10px 24px -18px rgba(0,0,0,.9);
+  position:relative;
+}
+/* the newest entry sits forward */
+.ent:last-child{
+  border-color:var(--line-2);
+  box-shadow:0 3px 0 rgba(0,0,0,.32), 0 16px 34px -18px rgba(0,0,0,.95);
+}
+/* major beats (many stat changes) read heavier than filler */
+.ent.major{
+  border-left-width:4px;
+  background:linear-gradient(180deg, var(--raised) 0%, var(--surface) 100%);
+}
+.ent.major .lbl{color:var(--ink);font-weight:600}
+.ent.major p{font-size:15px;line-height:1.55}
+/* quiet system notes recede */
+.ent.quiet{background:transparent;border-style:dashed;box-shadow:none;opacity:.75}
+.ent.quiet p{font-size:13px;color:var(--ink-2)}
+
+.yr-sep span{color:var(--ink-2);font-weight:600}

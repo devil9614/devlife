@@ -2,6 +2,7 @@ import { Game } from '../engine/game.js';
 import { STAT_DEFS } from '../engine/state.js';
 import { ACTIVITY_CATEGORIES } from '../data/activities.js';
 import { ENDINGS } from '../data/index.js';
+import { activePeople, alumni, traitOf, roleOf } from '../engine/people.js';
 import { shareUrl, readSharedFromLocation } from './share.js';
 
 const $ = s => document.querySelector(s);
@@ -160,7 +161,12 @@ function feedHtml(){
     }
     const chips = f.deltas ? `<div class="chips">${Object.entries(f.deltas).map(([k,v])=>
       `<span class="chip ${v>0?'up':'down'}">${STAT_DEFS[k]?.label||k} ${v>0?'+':''}${v}</span>`).join('')}</div>` : '';
-    out += `<div class="ent ${f.kind||''}">
+    // Visual weight follows real significance: big swings read as major beats,
+    // ambient system notes recede. Stops the feed being a flat uniform stack.
+    const mag = f.deltas ? Object.values(f.deltas).reduce((a,v)=>a+Math.abs(v),0) : 0;
+    // Calibrated against real delta magnitudes (median ~22, max ~36).
+    const weightCls = mag >= 30 ? ' major' : (!f.deltas && !f.lbl) ? ' quiet' : '';
+    out += `<div class="ent ${f.kind||''}${weightCls}">
       ${f.lbl?`<div class="lbl">${esc(f.lbl)}</div>`:''}
       <p>${esc(f.text)}</p>${chips}</div>`;
   }
@@ -178,7 +184,7 @@ function actionBar(){
 
 function nav(){
   const items = [
-    ['life','Life','📜'],['activities','Do','⚡'],['lab','Lab','🏢'],
+    ['life','Life','📜'],['activities','Do','⚡'],['team','Team','👥'],
     ['model','Model','◈'],['world','World','🌐'],
   ];
   return `<div class="nav">${items.map(([id,l,ic])=>
@@ -233,6 +239,35 @@ function paneHtml(which){
       ${row('Talent',Math.round(st.talent))}${row('Team morale',Math.round(st.morale))}
       ${row('Reputation',Math.round(st.reputation))}${row('Your health',Math.round(st.health))}
       ${row('Decisions made',s.log.length)}</div></div>`;
+  }
+  if(which==='team'){
+    const roster=activePeople(s), gone=alumni(s);
+    const card=p=>{
+      const t=traitOf(p), r=roleOf(p), tenure=s.year-p.joinedYear;
+      const mood=p.morale>=65?'good':p.morale>=35?'mid':'bad';
+      return `<div class="person">
+        <div class="pf">${esc(p.name.split(' ').map(x=>x[0]).join(''))}</div>
+        <div class="pb">
+          <div class="pn">${esc(p.name)}</div>
+          <div class="pr">${esc(r.label)} · ${tenure===0?'joined this year':tenure+'y'}</div>
+          <div class="ptags">
+            <span class="ptag ${t.good?'good':'bad'}">${esc(t.label)}</span>
+            <span class="ptag skill">skill ${p.skill}</span>
+            <span class="ptag mood-${mood}">morale ${Math.round(p.morale)}</span>
+          </div>
+        </div>
+      </div>`;
+    };
+    return `<div class="sh-hd"><div class="k">${roster.length} on staff${gone.length?` · ${gone.length} departed`:''}</div><h2>The Team</h2></div>
+      <div class="sh-bd">
+      ${roster.length?roster.map(card).join(''):`<div class="empty">Nobody works here yet.</div>`}
+      ${gone.length?`<div class="ls-h" style="margin:18px 0 10px">Departed</div>
+        ${gone.map(p=>`<div class="person gone">
+          <div class="pf">${esc(p.name.split(' ').map(x=>x[0]).join(''))}</div>
+          <div class="pb"><div class="pn">${esc(p.name)}</div>
+          <div class="pr">${esc(roleOf(p).label)} · left year ${p.history[p.history.length-1]?.year ?? '?'}</div></div>
+        </div>`).join('')}`:''}
+      </div>`;
   }
   if(which==='model'){
     return `<div class="sh-hd"><div class="k">${esc(s.modelName)}</div><h2>The Model</h2></div><div class="sh-bd"><div class="pane">

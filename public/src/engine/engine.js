@@ -188,7 +188,12 @@ export function advanceYear(state, rng) {
   // Recursive self-improvement: the runaway term.
   if (state.flags.recursive_improvement) {
     applyEffects(state, { capability: Math.round(6 + s.capability * 0.09) });
-    notes.push({ kind: 'danger', text: `${state.modelName || 'The model'} improved itself again this year.` });
+    notes.push({ kind: 'danger', text: rng.pick([
+      `${state.modelName} rewrote part of its own training loop this year. The diff was reviewed by nobody who fully understood it.`,
+      `${state.modelName} improved itself again. The gap between what it can do and what you can verify widened.`,
+      `Another self-improvement cycle completed overnight. You read the changelog in the morning like everyone else.`,
+      `${state.modelName} shipped a better ${state.modelName}. The version number is the only part you contributed.`,
+    ]) });
   }
 
   // Containment erodes as capability outruns interpretability.
@@ -199,8 +204,18 @@ export function advanceYear(state, rng) {
   if (s.capability > 50 && s.interpretability > 55) applyEffects(state, { suspicion: 2 });
 
   // Health and morale drift.
-  if (s.funding < 15) { applyEffects(state, { morale: -6, health: -3 }); notes.push({ kind: 'warn', text: 'Payroll is tight. People are noticing.' }); }
-  if (s.regulatory > 70) { applyEffects(state, { funding: -4 }); notes.push({ kind: 'warn', text: 'Compliance costs are eating the budget.' }); }
+  if (s.funding < 15) { applyEffects(state, { morale: -6, health: -3 }); notes.push({ kind: 'warn', text: rng.pick([
+    'Payroll clears with four days of margin. Two people ask, carefully, whether things are alright.',
+    'You start reading the burn spreadsheet on weekends. Nobody has said anything yet, but they have noticed.',
+    'The cloud invoice and the salary run land the same week. One of them is going to have to wait.',
+    'Someone forwards you a job posting "in case it is useful for the team". It is not subtle.',
+  ]) }); }
+  if (s.regulatory > 70) { applyEffects(state, { funding: -4 }); notes.push({ kind: 'warn', text: rng.pick([
+    'Two more compliance hires and a standing legal retainer. None of it makes the model safer; all of it is mandatory.',
+    'You spend a full week on a filing. The lawyers bill for two.',
+    'A regulator requests documentation you do not have, in a format that does not exist yet.',
+    'Compliance now costs more than your first two years of compute did.',
+  ]) }); }
 
   return notes;
 }

@@ -5,8 +5,9 @@ import life from './events-life.js';
 import career from './events-career.js';
 import world from './events-world.js';
 import model from './events-model.js';
+import people from './events-people.js';
 
-export const ALL_EVENTS = [...early, ...mid, ...late, ...life, ...career, ...world, ...model];
+export const ALL_EVENTS = [...early, ...mid, ...late, ...life, ...career, ...world, ...model, ...people];
 
 // Sanity: no duplicate ids.
 const ids = new Set();

@@ -5,6 +5,7 @@ import { ALL_EVENTS, ENDINGS } from '../data/index.js';
 import { ACTIVITIES } from '../data/activities.js';
 import { ORIGINS, COMPLICATIONS } from '../data/origins.js';
 import { makeWorld, pickText } from './variation.js';
+import { foundingTeam, tickPeople, makePerson, activePeople } from './people.js';
 
 const MODEL_NAMES = ['Theta','Kestrel','Orrery','Vantage','Lantern','Praxis','Meridian','Halcyon',
   'Cinder','Wren','Aleph','Tessera','Junco','Vesper','Cardinal','Ostrom'];
@@ -43,6 +44,10 @@ export class Game {
         roll < 0.82 ? 1.0  :          // normal
                       2.4;            // a recurring theme of this life
     }
+
+    // The lab is people. Seeded here so year 0 already has named humans in it.
+    this.state.people = foundingTeam(this.rng, 0);
+    this._rosterNotes = [];
 
     this.queue = [];
     this.yearNotes = [];
@@ -112,6 +117,7 @@ export class Game {
     const choice = raw.choices[choiceIndex];
     if (!choice) return null;
     const res = resolveChoice(this.state, raw, choice, this.rng);
+    this.applyRoster(res.outcome);
     // Outcome prose gets the same variant/token treatment as event text.
     res.outcome = { ...res.outcome,
       text: pickText(res.outcome.textVariants || res.outcome.text, this.rng, this.world, this.state) };
@@ -125,10 +131,46 @@ export class Game {
     return res;
   }
 
+  /**
+   * Outcomes may hire or lose named people via `hires` / `loses`. Roster
+   * changes are what make the Team tab feel alive rather than statistical.
+   */
+  applyRoster(outcome) {
+    if (!outcome) return;
+    const hires = outcome.hires;
+    if (hires) {
+      const n = typeof hires === 'number' ? hires : (hires.count || 1);
+      const role = typeof hires === 'object' ? hires.role : null;
+      const q = typeof hires === 'object' ? hires.quality : null;
+      for (let i = 0; i < n; i++) {
+        const p = makePerson(this.rng, { role, quality: q });
+        p.joinedYear = this.state.year;
+        p.history.push({ year: this.state.year, text: 'Joined the lab.' });
+        this.state.people.push(p);
+        this._rosterNotes.push(`${p.name} joined as ${p.role}.`);
+      }
+    }
+    if (outcome.loses) {
+      const roster = activePeople(this.state);
+      const n = Math.min(outcome.loses, roster.length);
+      for (let i = 0; i < n; i++) {
+        const p = this.rng.pick(roster.filter(x => x.status === 'active'));
+        if (!p) break;
+        p.status = 'left';
+        p.history.push({ year: this.state.year, text: 'Left the lab.' });
+        this._rosterNotes.push(`${p.name} left.`);
+      }
+    }
+  }
+
+  /** Roster changes produced by the last action, for the UI to surface. */
+  takeRosterNotes() { const n = this._rosterNotes; this._rosterNotes = []; return n; }
+
   /** Move to the next year once the queue is empty. */
   nextYear() {
     if (this.state.dead) return [];
     this.yearNotes = advanceYear(this.state, this.rng);
+    this.yearNotes.push(...tickPeople(this.state, this.rng));
     this.state.actionsLeft = 2;
     this.checkEnd();
     if (!this.state.dead) this.refillQueue();
@@ -188,6 +230,7 @@ export class Game {
 
     const res = resolveChoice(this.state, { id: a.id }, scaled, this.rng);
     if (!res) return null;
+    this.applyRoster(res.outcome);
     res.outcome = { ...res.outcome,
       text: pickText(res.outcome.textVariants || res.outcome.text, this.rng, this.world, this.state) };
     this.state.actionsLeft -= 1;

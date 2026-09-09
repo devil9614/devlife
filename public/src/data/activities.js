@@ -78,11 +78,11 @@ export const ACTIVITIES = [
   requires: { funding: { gte: 18 } },
   outcomes: [
     { weight: 10, text: 'Four good hires and one great one. The great one changes the trajectory of a whole workstream.',
-      effects: { talent: 12, funding: -16, morale: 4 } },
+      effects: { funding: -16, morale: 4 }, hires: { count: 2 } },
     { weight: 4, bias: { reputation: 0.9 }, text: 'A senior researcher you have admired for years says yes. People notice.',
-      effects: { talent: 18, reputation: 8, funding: -16 } },
+      effects: { reputation: 8, funding: -16 }, hires: { count: 1, quality: 82 } },
     { weight: 3, text: 'You hire fast and badly. Two of them leave within the year and the culture takes the damage.',
-      effects: { talent: 3, funding: -16, morale: -9 } },
+      effects: { funding: -16, morale: -9 }, hires: { count: 1, quality: 34 } },
   ],
 },
 {

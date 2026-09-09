@@ -1,0 +1,182 @@
+/* DEVLIFE — BitLife-shaped, mobile-first.
+   Phone frame, life-event feed, stat bars, big Age button, bottom nav. */
+:root{
+  --bg:#0b0f17; --surface:#141a26; --surface-2:#1b2231; --raised:#222b3d;
+  --line:#28324a; --line-2:#37435e;
+  --ink:#eef2f9; --ink-2:#9fadc6; --ink-3:#6a788f;
+  --brand:#22d39a; --brand-ink:#04140e; --brand-dim:#159c72;
+  --blue:#4aa8ff; --amber:#f5b544; --rose:#ff6b81; --violet:#a78bfa;
+  --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  line-height:1.5;-webkit-font-smoothing:antialiased;
+  overscroll-behavior:none;overflow:hidden;
+}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+
+/* ---------- phone frame ---------- */
+#app{
+  width:100%;max-width:460px;margin:0 auto;
+  /* Fixed viewport height so the feed scrolls INSIDE the frame and the
+     Age button / nav stay pinned on screen — the whole point on mobile. */
+  height:100dvh;max-height:100dvh;overflow:hidden;
+  display:flex;flex-direction:column;position:relative;
+  background:var(--bg);
+}
+@media(min-width:620px){
+  body{background:#05070b;padding:20px 0}
+  #app{
+    height:min(880px,calc(100dvh - 40px));max-height:calc(100dvh - 40px);
+    border:1px solid var(--line);border-radius:26px;overflow:hidden;
+    box-shadow:0 30px 90px -30px #000;
+  }
+}
+
+/* ---------- top bar ---------- */
+.hdr{
+  flex:none;display:flex;align-items:center;gap:10px;
+  padding:14px 16px 12px;border-bottom:1px solid var(--line);
+  background:var(--surface);
+}
+.hdr .who{min-width:0;flex:1}
+.hdr .nm{font-weight:650;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr .sub{font-size:11.5px;color:var(--ink-3);font-family:var(--mono)}
+.hdr .yr{
+  font-family:var(--mono);font-size:12px;color:var(--brand);
+  background:#0e2b22;border:1px solid #1c5a45;border-radius:999px;padding:5px 11px;flex:none
+}
+
+/* ---------- stat bars (BitLife's four, plus ours) ---------- */
+.bars{flex:none;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--line);
+  display:grid;grid-template-columns:1fr 1fr;gap:9px 14px}
+.bar-row .t{display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px}
+.bar-row .t b{font-weight:600;color:var(--ink-2)}
+.bar-row .t i{font-style:normal;font-family:var(--mono);color:var(--ink)}
+.bar-row .track{height:6px;background:#0a0e15;border-radius:99px;overflow:hidden}
+.bar-row .track i{display:block;height:100%;border-radius:99px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+.c-green i{background:linear-gradient(90deg,#12a97a,#22d39a)}
+.c-blue  i{background:linear-gradient(90deg,#2b7fd4,#4aa8ff)}
+.c-amber i{background:linear-gradient(90deg,#d1912a,#f5b544)}
+.c-rose  i{background:linear-gradient(90deg,#d94b60,#ff6b81)}
+.c-violet i{background:linear-gradient(90deg,#7c5cf0,#a78bfa)}
+
+/* ---------- life feed (the main screen) ---------- */
+.feed{flex:1 1 0;min-height:0;overflow-y:auto;padding:14px 16px 18px;-webkit-overflow-scrolling:touch}
+.yr-sep{display:flex;align-items:center;gap:10px;margin:16px 0 10px}
+.yr-sep::before,.yr-sep::after{content:"";height:1px;background:var(--line);flex:1}
+.yr-sep span{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;color:var(--ink-3)}
+.ent{
+  background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--line-2);
+  border-radius:11px;padding:11px 13px;margin-bottom:8px;font-size:14px;
+  animation:slide .34s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes slide{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.ent .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-3);margin-bottom:4px}
+.ent p{margin:0;color:var(--ink)}
+.ent.act{border-left-color:var(--blue)} .ent.act .lbl{color:var(--blue)}
+.ent.evt{border-left-color:var(--brand)} .ent.evt .lbl{color:var(--brand)}
+.ent.warn{border-left-color:var(--amber)} .ent.warn .lbl{color:var(--amber)}
+.ent.danger{border-left-color:var(--rose)} .ent.danger .lbl{color:var(--rose)}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.chip{font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:6px;
+  background:#0d1219;border:1px solid var(--line)}
+.chip.up{color:#5ce0aa;border-color:#1b4a38} .chip.down{color:#ff8d9e;border-color:#4a222b}
+
+/* ---------- action bar ---------- */
+.act-bar{flex:none;padding:10px 16px calc(10px + var(--safe-b));background:var(--surface);
+  border-top:1px solid var(--line);display:flex;gap:10px;align-items:center}
+.age-btn{
+  flex:1;background:linear-gradient(180deg,#26e0a5,#16b884);color:var(--brand-ink);
+  font-weight:750;font-size:16px;letter-spacing:.02em;border-radius:13px;padding:14px;
+  box-shadow:0 5px 0 #0e7a58, 0 10px 22px -8px rgba(34,211,154,.55);
+  transition:transform .08s,box-shadow .08s;
+}
+.age-btn:active{transform:translateY(4px);box-shadow:0 1px 0 #0e7a58}
+.age-btn small{display:block;font-weight:600;font-size:10.5px;opacity:.7;letter-spacing:.08em}
+.acts-left{font-family:var(--mono);font-size:11px;color:var(--ink-3);text-align:center;flex:none;width:58px}
+.acts-left b{display:block;font-size:19px;color:var(--brand)}
+
+/* ---------- bottom nav ---------- */
+.nav{flex:none;display:grid;grid-template-columns:repeat(5,1fr);
+  background:var(--surface-2);border-top:1px solid var(--line);
+  padding-bottom:var(--safe-b)}
+.nav button{padding:9px 2px 10px;display:flex;flex-direction:column;align-items:center;gap:3px;
+  font-size:10px;color:var(--ink-3);transition:color .15s}
+.nav button .ic{font-size:17px;line-height:1}
+.nav button.on{color:var(--brand)}
+.nav button.on .ic{filter:drop-shadow(0 0 7px rgba(34,211,154,.5))}
+
+/* ---------- modal (events & menus) ---------- */
+.scrim{position:absolute;inset:0;background:rgba(4,7,12,.72);backdrop-filter:blur(3px);
+  display:flex;align-items:flex-end;z-index:40;animation:fade .2s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.sheet{
+  width:100%;max-height:86%;background:var(--surface);border-radius:20px 20px 0 0;
+  border-top:1px solid var(--line-2);display:flex;flex-direction:column;
+  animation:up .3s cubic-bezier(.2,.9,.25,1);padding-bottom:var(--safe-b);
+}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+.sheet .grab{width:36px;height:4px;background:var(--line-2);border-radius:99px;margin:9px auto 4px;flex:none}
+.sheet .sh-hd{padding:8px 20px 12px;flex:none}
+.sheet .sh-hd .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--brand)}
+.sheet .sh-hd h2{margin:6px 0 0;font-size:21px;line-height:1.25;letter-spacing:-.015em}
+.sheet .sh-bd{padding:0 20px 18px;overflow-y:auto;flex:1}
+.sheet .sh-bd>p{margin:0 0 16px;color:var(--ink-2);font-size:14.5px}
+
+.opt{display:flex;gap:11px;align-items:flex-start;width:100%;text-align:left;
+  background:var(--raised);border:1px solid var(--line);border-radius:12px;
+  padding:13px 14px;margin-bottom:8px;font-size:14.5px;transition:.14s}
+.opt:active{transform:scale(.985);border-color:var(--brand)}
+@media(hover:hover){.opt:hover{border-color:var(--brand);background:#26314a}}
+.opt .n{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);border:1px solid var(--line-2);
+  border-radius:5px;padding:2px 6px;flex:none;margin-top:2px}
+.opt .d{display:block;font-size:12px;color:var(--ink-3);margin-top:3px;line-height:1.4}
+.opt .ttl{display:block;font-weight:600}
+.opt>span{min-width:0}
+.opt.locked{opacity:.42;pointer-events:none}
+.opt .lock{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--ink-3);flex:none}
+
+.cat-tabs{display:flex;gap:6px;overflow-x:auto;padding:0 20px 12px;flex:none}
+.cat-tabs button{font-size:12.5px;padding:7px 13px;border-radius:999px;white-space:nowrap;
+  background:var(--raised);border:1px solid var(--line);color:var(--ink-2)}
+.cat-tabs button.on{background:#0e2b22;border-color:#1c5a45;color:var(--brand)}
+
+.btn{display:block;width:100%;background:var(--brand);color:var(--brand-ink);font-weight:700;
+  font-size:15px;border-radius:12px;padding:13px;margin-top:4px}
+.btn.sec{background:var(--raised);color:var(--ink);border:1px solid var(--line-2)}
+
+/* ---------- info panes ---------- */
+.pane{padding:4px 0}
+.row{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:14px}
+.row:last-child{border-bottom:0}
+.row .k{color:var(--ink-2)} .row .v{font-family:var(--mono)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;padding-top:4px}
+.tag{font-family:var(--mono);font-size:10.5px;padding:4px 8px;border-radius:6px;
+  background:#0e2b22;border:1px solid #1c5a45;color:var(--brand)}
+.empty{color:var(--ink-3);font-size:13.5px;text-align:center;padding:26px 0}
+
+/* ---------- start / ending ---------- */
+.splash{flex:1 1 0;min-height:0;overflow-y:auto;display:flex;flex-direction:column;justify-content:center;padding:28px 24px;text-align:center}
+.splash h1{font-size:46px;margin:0 0 6px;letter-spacing:-.04em;font-weight:800}
+.splash h1 span{color:var(--brand)}
+.splash .tl{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--ink-3);margin-bottom:22px}
+.splash p{color:var(--ink-2);font-size:14.5px;margin:0 0 24px}
+.splash input,.splash select{width:100%;background:var(--raised);border:1px solid var(--line-2);
+  color:var(--ink);border-radius:12px;padding:13px 14px;font:inherit;font-size:14.5px;margin-bottom:9px}
+.splash input:focus,.splash select:focus{outline:none;border-color:var(--brand)}
+.end-tone{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  padding:6px 14px;border-radius:999px;display:inline-block;margin-bottom:16px}
+.t-triumph{background:#0c2e22;color:#4ade80;border:1px solid #1b6b4a}
+.t-catastrophe{background:#2e0f16;color:#ff6b81;border:1px solid #7f2438}
+.t-bad{background:#2a1a0c;color:#f5b544;border:1px solid #7a5216}
+.t-grey{background:var(--raised);color:var(--ink-2);border:1px solid var(--line-2)}
+.sc-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:20px 0 22px}
+.sc{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:13px}
+.sc b{display:block;font-family:var(--mono);font-size:22px;color:var(--brand)}
+.sc span{font-size:10.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em}

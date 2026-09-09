@@ -1,0 +1,11 @@
+{
+  "name": "devlife",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A text-based AI-lab life simulator.",
+  "scripts": {
+    "dev": "node server.js",
+    "test": "node test/sim.test.js"
+  }
+}

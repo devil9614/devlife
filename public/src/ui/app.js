@@ -4,6 +4,7 @@ import { ACTIVITY_CATEGORIES } from '../data/activities.js';
 import { ENDINGS } from '../data/index.js';
 import { activePeople, alumni, traitOf, roleOf } from '../engine/people.js';
 import { shareUrl, readSharedFromLocation } from './share.js';
+import { saveGame, loadSave, clearSave, restoreGame } from '../engine/save.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -136,6 +137,7 @@ function header(){
       <div class="sub">${esc(s.modelName)} · gen ${s.modelGen||1} · age ${s.age}</div>
     </div>
     <div class="yr">YEAR ${s.year}</div>
+    <button class="hdr-menu" id="hmenu" title="Menu">⋯</button>
   </div>`;
 }
 
@@ -227,6 +229,30 @@ function sheetHtml(){
       </div>`;
   }
   if(sheet.kind==='pane') inner=paneHtml(sheet.pane);
+  if(sheet.kind==='menu'){
+    inner=`<div class="sh-hd"><div class="k">Year ${game.state.year} · autosaved</div><h2>Menu</h2></div>
+      <div class="sh-bd">
+        <p style="color:var(--ink-3);font-size:13px;margin:0 0 14px">
+          This life saves automatically. You can close the tab and come back to it.
+        </p>
+        <button class="opt" id="m-close"><span><span class="ttl">Keep playing</span></span></button>
+        <button class="opt danger-opt" id="m-restart"><span>
+          <span class="ttl">Abandon this life</span>
+          <span class="d">Year ${game.state.year}, ${game.state.log.length} decisions. This cannot be undone.</span>
+        </span></button>
+      </div>`;
+  }
+  if(sheet.kind==='confirm-restart'){
+    inner=`<div class="sh-hd"><div class="k">Are you sure</div><h2>Abandon this life?</h2></div>
+      <div class="sh-bd">
+        <p style="color:var(--ink-2);font-size:14px;margin:0 0 16px">
+          ${esc(game.state.name)} — year ${game.state.year}, ${game.state.log.length} decisions,
+          ${activePeople(game.state).length} people on staff. There is no ending screen for a life you abandon.
+        </p>
+        <button class="btn sec" id="c-no">Keep playing</button>
+        <button class="btn danger-btn" id="c-yes" style="margin-top:8px">Abandon it</button>
+      </div>`;
+  }
   return `<div class="scrim" id="scrim"><div class="sheet"><div class="grab"></div>${inner}</div></div>`;
 }
 
@@ -453,11 +479,20 @@ function onAge(){
   const f=$('#feed'); if(f) f.scrollTop=f.scrollHeight;
 }
 
+// ---------------- autosave ----------------
+// Every state change goes through render(), so that is the one reliable place
+// to persist from. Cheap enough to do unconditionally.
+function autosave(){
+  if(!game || screen!=='play') return;
+  saveGame(game, { feed, tab });
+}
+
 // ---------------- root ----------------
 function render(){
   if(screen==='start') return renderStart();
   if(screen==='shared') return renderShared(sharedData);
-  if(screen==='ending') return renderEnding();
+  if(screen==='ending'){ clearSave(); return renderEnding(); }
+  autosave();
 
   app.innerHTML = header()+bars()+feedHtml()+actionBar()+nav()+sheetHtml();
 
@@ -474,6 +509,13 @@ function render(){
   app.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>onChoice(+b.dataset.ch));
   app.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>onActivity(b.dataset.act));
   app.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{actCat=b.dataset.cat;render();});
+  const hm=$('#hmenu'); if(hm) hm.onclick=()=>{ sheet={kind:'menu'}; render(); };
+  const mClose=$('#m-close'); if(mClose) mClose.onclick=()=>{ sheet=null; render(); };
+  const mRestart=$('#m-restart'); if(mRestart) mRestart.onclick=()=>{ sheet={kind:'confirm-restart'}; render(); };
+  const cNo=$('#c-no'); if(cNo) cNo.onclick=()=>{ sheet=null; render(); };
+  const cYes=$('#c-yes'); if(cYes) cYes.onclick=()=>{
+    clearSave(); game=null; draft=null; feed=[]; sheet=null; tab='life'; screen='start'; render();
+  };
   const ok=$('#ok'); if(ok) ok.onclick=()=>{
     sheet=null;
     if(game.current){ render(); openEvent(); } else render();
@@ -482,7 +524,10 @@ function render(){
   if(scrim) scrim.onclick=e=>{
     if(e.target!==scrim) return;
     if(sheet && sheet.kind==='event') return;   // must decide
-    sheet=null; tab='life'; render();
+    // Tapping away from menu/confirm just cancels; it should not also move you
+    // off whatever tab you were on.
+    const keepTab = sheet && (sheet.kind==='menu' || sheet.kind==='confirm-restart');
+    sheet=null; if(!keepTab) tab='life'; render();
   };
 
   const f=$('#feed'); if(f) f.scrollTop=f.scrollHeight;
@@ -498,5 +543,24 @@ document.addEventListener('keydown',e=>{
 // If this page was opened from a shared life-summary link, show that instead
 // of the start screen — the whole point of a share is landing straight on it.
 const shared = readSharedFromLocation();
-if(shared){ sharedData = shared; screen = 'shared'; }
+if(shared){
+  sharedData = shared; screen = 'shared';
+} else {
+  // Otherwise resume an autosaved life if one exists. A life is long; losing
+  // one to a closed tab would be the worst failure this game could have.
+  const save = loadSave();
+  if(save){
+    const restored = restoreGame(Game, save);
+    if(restored && !restored.state.dead){
+      game = restored;
+      feed = save.ui?.feed || [];
+      tab  = save.ui?.tab  || 'life';
+      screen = 'play';
+      // If a decision was on screen when they left, put it back.
+      if(game.current) sheet = { kind:'event', ev: game.current };
+    } else {
+      clearSave();
+    }
+  }
+}
 render();

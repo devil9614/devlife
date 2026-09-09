@@ -11,6 +11,11 @@ export function makeRng(seed) {
   };
   return {
     next,
+    // Save/restore the exact stream position. A restored game must continue
+    // producing the same numbers it would have, or reloading would silently
+    // reroll the player's world.
+    getState: () => s,
+    setState: (v) => { s = (v >>> 0) || 1; },
     int: (n) => Math.floor(next() * n),
     range: (a, b) => a + Math.floor(next() * (b - a + 1)),
     pick: (arr) => arr[Math.floor(next() * arr.length)],

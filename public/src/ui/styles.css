@@ -354,3 +354,13 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .ent.quiet p{font-size:13px;color:var(--ink-2)}
 
 .yr-sep span{color:var(--ink-2);font-weight:600}
+
+/* ---------- header menu + destructive actions ---------- */
+.hdr-menu{flex:none;width:32px;height:32px;border-radius:9px;margin-left:8px;
+  background:var(--raised);border:1px solid var(--line);color:var(--ink-3);
+  font-size:16px;line-height:1;transition:.15s}
+@media(hover:hover){.hdr-menu:hover{color:var(--ink);border-color:var(--line-2)}}
+.opt.danger-opt{border-color:#4a222b}
+.opt.danger-opt .ttl{color:var(--rose)}
+@media(hover:hover){.opt.danger-opt:hover{border-color:var(--rose);background:#25141a}}
+.btn.danger-btn{background:var(--rose);color:#2a0910}

@@ -1,17 +1,23 @@
 import { Game } from '../engine/game.js';
 import { STAT_DEFS } from '../engine/state.js';
 import { ACTIVITY_CATEGORIES } from '../data/activities.js';
+import { ENDINGS } from '../data/index.js';
+import { shareUrl, readSharedFromLocation } from './share.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const app = $('#app');
 
 let game = null;
-let screen = 'start';        // start | play | ending
+let screen = 'start';        // start | play | ending | shared
 let sheet = null;            // null | {kind:'event'|'outcome'|'activities'|'pane', ...}
 let tab = 'life';            // bottom nav
 let actCat = 'research';
 let feed = [];               // life log entries rendered in the feed
+let sharedData = null;       // a life summary someone else sent us
+
+const TONE_COLOR = { triumph:'var(--tone-triumph)', catastrophe:'var(--tone-catastrophe)', bad:'var(--tone-bad)', grey:'var(--tone-grey)' };
+const TONE_GLOW  = { triumph:'var(--tone-triumph-glow)', catastrophe:'var(--tone-catastrophe-glow)', bad:'var(--tone-bad-glow)', grey:'var(--tone-grey-glow)' };
 
 // Four headline bars, BitLife-style, plus the two that define this game.
 const HEADLINE = [
@@ -181,25 +187,133 @@ function paneHtml(which){
   return '';
 }
 
-// ---------------- ending ----------------
+// ---------------- life summary (ending + shared view) ----------------
+const STAT_RING = [
+  ['capability','Capability','c-blue', 260],
+  ['alignment','Alignment','c-green', 100],
+  ['containment','Containment','c-violet', 100],
+  ['publicTrust','Public Trust','c-green', 100],
+];
+
+function ringBar(k,label,cls,hi,val){
+  const pct=Math.max(2,Math.min(100,(val/hi)*100));
+  return `<div class="ls-stat">
+    <div class="lbl">${label}<b>${Math.round(val)}</b></div>
+    <div class="ring ${cls}"><i style="width:${pct}%"></i></div>
+  </div>`;
+}
+
+function momentsHtml(moments){
+  if(!moments.length) return '';
+  return moments.map(m=>`<div class="ls-moment">
+    <div class="yr">YR ${m.year}</div>
+    <div class="stem"></div>
+    <div class="mc"><div class="mt">${esc(m.title)}</div><div class="mx">${esc(m.text)}</div></div>
+  </div>`).join('');
+}
+
+function flagsHtml(flags){
+  if(!flags.length) return `<p class="ls-narrative" style="margin:0">The world never quite noticed this one.</p>`;
+  return `<div class="ls-flags">${flags.slice(0,14).map(f=>`<span class="ls-flag">${esc(f.replace(/_/g,' '))}</span>`).join('')}</div>`;
+}
+
+// Renders the full summary card from a plain data object so the same markup
+// serves both a finished run (rich, from `game`) and a shared link (from the
+// compact packed payload — fewer moments, no live game object).
+function summaryHtml({ tone, title, text, name, modelName, year, decisions, stats, moments, flags, isLive, seed }){
+  const c = TONE_COLOR[tone] || TONE_COLOR.grey, glow = TONE_GLOW[tone] || TONE_GLOW.grey;
+  return `<div class="life-summary" style="--tone-c:${c};--tone-glow:${glow}">
+    <div class="ls-hero">
+      <div class="ls-eyebrow">${esc(name)} · ${esc(modelName)}</div>
+      <span class="ls-badge">${esc(tone)}</span>
+      <h1 class="ls-title">${esc(title)}</h1>
+      <p class="ls-narrative">${esc(text)}</p>
+    </div>
+    <div class="ls-body">
+      <div class="ls-section">
+        <div class="ls-vitals">
+          <div class="ls-vital"><b>${year}</b><span>Years</span></div>
+          <div class="ls-vital"><b>${decisions}</b><span>Decisions</span></div>
+          <div class="ls-vital"><b>${flags.length}</b><span>Conditions</span></div>
+        </div>
+      </div>
+      <div class="ls-section">
+        <div class="ls-h">Final state</div>
+        <div class="ls-portrait">${STAT_RING.map(([k,l,cls,hi])=>ringBar(k,l,cls,hi,stats[k]||0)).join('')}</div>
+      </div>
+      ${moments.length?`<div class="ls-section">
+        <div class="ls-h">Defining moments</div>
+        ${momentsHtml(moments)}
+      </div>`:''}
+      <div class="ls-section" style="margin-bottom:8px">
+        <div class="ls-h">World left behind</div>
+        ${flagsHtml(flags)}
+      </div>
+    </div>
+    ${isLive?`<div class="ls-actions">
+      <div class="ls-share-row">
+        <button class="btn" id="share">Share this life</button>
+        <button class="btn sec" id="cp" style="flex:0 0 auto;width:52px">🔗</button>
+      </div>
+      <button class="btn sec" id="again">New Life</button>
+      <div class="ls-seed">SEED · ${esc(seed)}</div>
+    </div>`:`<div class="ls-actions">
+      <button class="btn" id="tryit">Build your own life</button>
+    </div>`}
+  </div>
+  <div class="ls-toast" id="toast"></div>`;
+}
+
+function toast(msg){
+  const t=$('#toast'); if(!t) return;
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toast._h); toast._h=setTimeout(()=>t.classList.remove('show'),1800);
+}
+
 function renderEnding(){
   const e=game.state.ending, s=game.state.stats;
-  app.innerHTML=`<div class="splash">
-    <span class="end-tone t-${e.tone}">${esc(e.tone)}</span>
-    <h1 style="font-size:34px">${esc(e.title)}</h1>
-    <p>${esc(e.text)}</p>
-    <div class="sc-grid">
-      <div class="sc"><b>${game.state.year}</b><span>Years</span></div>
-      <div class="sc"><b>${Math.round(s.capability)}</b><span>Capability</span></div>
-      <div class="sc"><b>${Math.round(s.alignment)}</b><span>Alignment</span></div>
-      <div class="sc"><b>${game.state.log.length}</b><span>Decisions</span></div>
-    </div>
-    <button class="btn" id="again">New Life</button>
-    <button class="btn sec" id="cp" style="margin-top:8px">Copy seed</button>
-    <div class="tl" style="margin:16px 0 0">SEED · ${esc(game.seed)}</div>
-  </div>`;
+  const flags=Object.entries(game.state.flags).filter(([,v])=>v).map(([k])=>k);
+  const moments=[...game.state.log]
+    .map(l=>({year:l.year,title:l.title,text:l.text,mag:Object.values(l.deltas||{}).reduce((a,v)=>a+Math.abs(v),0)}))
+    .sort((a,b)=>b.mag-a.mag).slice(0,4).sort((a,b)=>a.year-b.year);
+
+  app.innerHTML = summaryHtml({
+    tone:e.tone, title:e.title, text:e.text,
+    name:game.state.name, modelName:game.state.modelName,
+    year:game.state.year, decisions:game.state.log.length,
+    stats:s, moments, flags, isLive:true, seed:game.seed,
+  });
+
   $('#again').onclick=()=>{screen='start';render();};
-  $('#cp').onclick=ev=>{navigator.clipboard?.writeText(game.seed);ev.target.textContent='Copied';};
+  $('#tryit').onclick=()=>{screen='start';render();};
+  $('#cp').onclick=async()=>{
+    try{ await navigator.clipboard.writeText(shareUrl(game)); toast('Link copied'); }
+    catch{ toast('Could not copy — long-press the URL bar'); }
+  };
+  $('#share').onclick=async()=>{
+    const url=shareUrl(game);
+    const shareText=`${game.state.name} — ${e.title}. ${game.state.year} years, ${game.state.log.length} decisions.`;
+    if(navigator.share){
+      try{ await navigator.share({ title:'DEVLIFE', text:shareText, url }); }
+      catch{ /* user cancelled */ }
+    } else {
+      try{ await navigator.clipboard.writeText(url); toast('Link copied'); }
+      catch{ toast('Could not copy — long-press the URL bar'); }
+    }
+  };
+}
+
+function renderShared(data){
+  const e = ENDINGS[data.end] || { title:data.end, tone:'grey', text:'' };
+  app.innerHTML = summaryHtml({
+    tone:e.tone, title:e.title, text:e.text,
+    name:data.n, modelName:data.m,
+    year:data.yr, decisions:data.decisions, stats:data.stats,
+    moments:data.moments||[], flags:data.flags||[], isLive:false,
+  });
+  const badge=$('.ls-eyebrow');
+  if(badge) badge.innerHTML += ` <span class="ls-shared-tag">· shared life</span>`;
+  $('#tryit').onclick=()=>{ history.replaceState(null,'',location.pathname); screen='start'; sharedData=null; render(); };
 }
 
 // ---------------- actions ----------------
@@ -243,6 +357,7 @@ function onAge(){
 // ---------------- root ----------------
 function render(){
   if(screen==='start') return renderStart();
+  if(screen==='shared') return renderShared(sharedData);
   if(screen==='ending') return renderEnding();
 
   app.innerHTML = header()+bars()+feedHtml()+actionBar()+nav()+sheetHtml();
@@ -281,4 +396,8 @@ document.addEventListener('keydown',e=>{
   } else if(e.key==='Enter'){ const b=$('#ok')||$('#age'); b?.click(); }
 });
 
+// If this page was opened from a shared life-summary link, show that instead
+// of the start screen — the whole point of a share is landing straight on it.
+const shared = readSharedFromLocation();
+if(shared){ sharedData = shared; screen = 'shared'; }
 render();

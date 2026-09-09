@@ -1,4 +1,4 @@
-import { Game } from '../src/engine/game.js';
+import { Game } from '../public/src/engine/game.js';
 
 const N = 5000;
 const endings = {}; let totalYears = 0, stalls = 0, maxYear = 0;

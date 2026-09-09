@@ -30,34 +30,98 @@ const HEADLINE = [
 ];
 
 // ---------------- start ----------------
+// The start screen rolls a character and shows it, BitLife-style, rather than
+// presenting an empty form. You reroll until you like who you are.
+let draft = null;
+
+function rollDraft(){
+  const seed = String(Math.floor(Math.random()*1e9));
+  const g = new Game({ seed, name: LAB_NAMES[Math.floor(Math.random()*LAB_NAMES.length)], difficulty: 'standard' });
+  draft = { seed, game: g };
+  return draft;
+}
+
+const LAB_NAMES = ['Meridian Research','Cavendish Labs','Thousand Rivers','Quiet Systems','Northwind AI',
+  'Ferrous Institute','Blue Mesa Research','Halden Labs','Orbital Cognition','Third Axiom',
+  'Longwater','Pale Blue Compute','Ridgeline Intelligence','Verity Systems'];
+
 function renderStart(){
+  const d = draft || rollDraft();
+  const s = d.game.state;
+  const o = s.origin, c = s.complication;
+  const bump = (k) => { const v = s.stats[k]; return v; };
+
   app.innerHTML = `
-    <div class="splash">
-      <h1>DEV<span>LIFE</span></h1>
-      <div class="tl">AN AI RESEARCH LIFE</div>
-      <p>You have a rented GPU and an idea. Age one year at a time.
-         Somewhere ahead is a system smarter than you — the only question
-         is whether it is still listening.</p>
-      <input id="nm" maxlength="26" value="Meridian Research" placeholder="Name your lab"/>
-      <select id="df">
-        <option value="sandbox">Sandbox — forgiving</option>
-        <option value="standard" selected>Standard</option>
-        <option value="hardline">Hardline — thin margins</option>
-      </select>
-      <input id="sd" placeholder="Seed (optional)"/>
-      <button class="btn" id="go">Start Life</button>
+    <div class="splash start-v2">
+      <div class="brandline">
+        <h1>DEV<span>LIFE</span></h1>
+        <div class="tl">AN AI RESEARCH LIFE</div>
+      </div>
+
+      <div class="char-card">
+        <div class="cc-top">
+          <div>
+            <div class="cc-lab" id="labname" contenteditable="true" spellcheck="false">${esc(s.name)}</div>
+            <div class="cc-meta">founded at ${s.age} · first model <b>${esc(s.modelName)}</b></div>
+          </div>
+          <button class="cc-reroll" id="reroll" title="Roll a different life">⟳</button>
+        </div>
+
+        <div class="cc-origin">
+          <div class="cc-tagrow">
+            <span class="cc-tag">${esc(o.label)}</span>
+            ${c.id!=='none'?`<span class="cc-tag alt">${esc(c.label)}</span>`:''}
+          </div>
+          <p class="cc-opener">${esc(o.opener)}${c.opener?' '+esc(c.opener):''}</p>
+        </div>
+
+        <div class="cc-stats">
+          ${[['capability','Capability'],['funding','Funding'],['reputation','Reputation'],['talent','Talent']]
+            .map(([k,l])=>`<div class="cc-stat"><span>${l}</span><b>${Math.round(bump(k))}</b></div>`).join('')}
+        </div>
+      </div>
+
+      <div class="start-actions">
+        <button class="btn" id="go">Begin this life</button>
+        <details class="adv">
+          <summary>Advanced</summary>
+          <select id="df">
+            <option value="sandbox">Sandbox — forgiving</option>
+            <option value="standard" selected>Standard</option>
+            <option value="hardline">Hardline — thin margins</option>
+          </select>
+          <input id="sd" placeholder="Seed (optional)"/>
+        </details>
+      </div>
     </div>`;
+
+  $('#reroll').onclick = () => { rollDraft(); render(); };
   $('#go').onclick = begin;
-  $('#nm').onkeydown = e => { if(e.key==='Enter') begin(); };
 }
 
 function begin(){
-  game = new Game({
-    seed: $('#sd').value.trim() || String(Math.floor(Math.random()*1e9)),
-    name: $('#nm').value.trim() || 'Unnamed Lab',
-    difficulty: $('#df').value,
-  });
-  feed = [{ kind:'evt', lbl:'Year 0', text:`You found ${game.state.name}. The first model is called ${game.state.modelName}.` }];
+  const typedSeed = $('#sd')?.value.trim();
+  const typedName = $('#labname')?.textContent.trim();
+  const diff = $('#df')?.value || 'standard';
+
+  // Reuse the rolled character unless the player overrode seed/difficulty.
+  if (draft && !typedSeed && diff === 'standard') {
+    game = draft.game;
+    if (typedName && typedName !== game.state.name) game.state.name = typedName;
+  } else {
+    game = new Game({
+      seed: typedSeed || String(Math.floor(Math.random()*1e9)),
+      name: typedName || 'Unnamed Lab',
+      difficulty: diff,
+    });
+  }
+  draft = null;
+  const o = game.state.origin, c = game.state.complication;
+  feed = [
+    { kind:'evt', lbl:`${o.label}${c.id!=='none'?' · '+c.label:''}`,
+      text:`${o.opener}${c.opener?' '+c.opener:''}` },
+    { kind:'evt', lbl:'Year 0', text:`You found ${game.state.name}. The first model is called ${game.state.modelName}.` },
+  ];
   screen = 'play'; sheet = null; tab='life';
   render();
 }

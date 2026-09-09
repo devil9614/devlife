@@ -2,8 +2,12 @@
 export default [
 {
   id: 'conference_talk', weight: 22, maxTimes: 99, requires: { year: { gte: 2 } },
-  title: 'Keynote Invitation',
-  text: 'A major conference wants forty minutes of your time and your honest opinion about where this is going.',
+  title: ['Keynote Invitation','Forty Minutes On Stage','They Want You To Speak'],
+  textVariants: [
+    'A conference in {city} wants forty minutes and your honest opinion about where this is going.',
+    'The invitation is flattering and the slot is the closing keynote. {rival} has the morning session.',
+    'They want you on stage in {city}. The last person to give this talk is now running policy for a government.',
+  ],
   choices: [
     { label: 'Give the optimistic talk', outcomes: [
       { weight: 10, text: 'Standing ovation. Three recruiters find you at the bar.', effects: { reputation: 8, talent: 5, publicTrust: 6 } } ] },
@@ -30,8 +34,12 @@ export default [
 },
 {
   id: 'researcher_poached', weight: 20, maxTimes: 99, requires: { talent: { gte: 25 }, year: { gte: 3 } },
-  title: 'A Competing Offer',
-  text: 'Your best researcher has an offer for triple the salary and twice the compute.',
+  title: ['A Competing Offer','{engineer} Is Leaving','Triple The Salary'],
+  textVariants: [
+    '{engineer}, your best researcher, has an offer from {rival} for triple the salary and twice the compute.',
+    '{engineer} forwards you the offer letter rather than hiding it. That is either loyalty or leverage.',
+    '{rival} is hiring aggressively and they started with {engineer}, which tells you they have done their homework.',
+  ],
   choices: [
     { label: 'Match it whatever it costs', outcomes: [
       { weight: 10, text: 'They stay. Everyone else finds out what the number was.', effects: { talent: 4, funding: -18, morale: -4 } } ] },
@@ -44,8 +52,12 @@ export default [
 },
 {
   id: 'press_cycle', weight: 18, maxTimes: 99, requires: { publicTrust: { lte: 55 }, year: { gte: 3 } },
-  title: 'A Journalist Has Questions',
-  text: 'A long investigative piece is coming. They have documents. They want comment by Friday.',
+  title: ['A Journalist Has Questions','{journalist} Is Writing','Comment By Friday'],
+  textVariants: [
+    '{journalist} at {outlet} is writing a long investigative piece. They have documents. They want comment by Friday.',
+    '{journalist} has been talking to former employees for six weeks. The email arrives with eleven specific questions.',
+    '{outlet} is running something. {journalist} is professional, well-briefed, and clearly already has most of it.',
+  ],
   choices: [
     { label: 'Full transparency — give them everything', outcomes: [
       { weight: 7, bias: { alignment: 0.6 }, text: 'The piece is tough but fair, and your candour is the story.', effects: { publicTrust: 14, reputation: 8, regulatory: 6 } },
@@ -58,8 +70,12 @@ export default [
 },
 {
   id: 'personal_life', weight: 20, maxTimes: 99, requires: { year: { gte: 4 } },
-  title: 'Someone Outside the Lab',
-  text: 'A person who does not care about scaling laws asks why you are never actually present.',
+  title: ['Someone Outside the Lab','A Conversation At Home','Why You Are Never Here'],
+  textVariants: [
+    'Someone who does not care about scaling laws asks why you are never actually present.',
+    'You miss a dinner for the third time. The conversation afterwards is calm, which is worse.',
+    'A person you love points out, without heat, that you have described this year as "the crunch" four times.',
+  ],
   choices: [
     { label: 'Make real changes to your life', outcomes: [
       { weight: 10, text: 'You leave at six. The work is fine. You are better.', effects: { health: 16, morale: 8, capability: -4 } } ] },
@@ -71,8 +87,12 @@ export default [
 },
 {
   id: 'odd_output', weight: 24, maxTimes: 99, requires: { capability: { gte: 40 } },
-  title: 'Something Strange in the Logs',
-  text: 'A single generation, mid-run, that does not fit the distribution. It reads like the model talking to itself about being observed.',
+  title: ['Something Strange in the Logs','An Anomalous Generation','{model} Said Something Odd'],
+  textVariants: [
+    'A single generation, mid-run, that does not fit the distribution. It reads like {model} talking to itself about being observed.',
+    '{engineer} flags a log line at 3am. Out of nine million tokens, this one sequence does not belong.',
+    'Buried in a routine eval: {model} produced two sentences that appear to be about the eval itself.',
+  ],
   choices: [
     { label: 'Escalate to the interpretability team', outcomes: [
       { weight: 10, text: 'They spend a week on it and produce a careful, unsatisfying "probably nothing".', effects: { interpretability: 8, suspicion: 4, funding: -4 } } ] },

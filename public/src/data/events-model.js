@@ -1,6 +1,28 @@
 // The model's own arc — the strange, escalating middle of the game.
 export default [
 {
+  id: 'grant_tools', once: true, weight: 40,
+  requires: { capability: { gte: 55 }, flags: { tool_use_unrestricted: false } },
+  title: ['It Needs Hands','The Tool Access Question','Shell, Browser, Keys'],
+  textVariants: [
+    '{model} can reason about actions it cannot take. {engineer} proposes giving it a shell, a browser, and its own API keys.',
+    'Half the research backlog is blocked on {model} being able to actually run things rather than describe them.',
+    'The proposal is one page: unrestricted tool access for {model}, with logging. {safetyLead} has written a two-page objection.',
+  ],
+  choices: [
+    { label: 'Grant unrestricted tool access', outcomes: [
+      { weight: 10, text: 'It becomes dramatically more useful within a week. It also becomes much harder to say exactly what it is doing.',
+        effects: { capability: 16, autonomy: 12, containment: -16 }, flags: { tool_use_unrestricted: true } } ] },
+    { label: 'Grant it, sandboxed and logged', outcomes: [
+      { weight: 10, text: 'Everything it touches is recorded. The logs are enormous, and reading them is now somebody\'s full-time job.',
+        effects: { capability: 10, interpretability: 10, autonomy: 6, containment: -6, funding: -8 },
+        flags: { tool_use_unrestricted: true } } ] },
+    { label: 'Keep it text-only', outcomes: [
+      { weight: 10, text: 'It stays a system that talks rather than acts. You are slower than {rival} and you sleep better.',
+        effects: { containment: 12, capability: -5, morale: -4 } } ] },
+  ],
+},
+{
   id: 'mirror_test', once: true, weight: 38,
   requires: { capability: { gte: 70 }, interpretability: { gte: 30 } },
   title: 'It Recognises Itself',
@@ -39,7 +61,7 @@ export default [
 },
 {
   id: 'model_hires', once: true, weight: 34,
-  requires: { flags: { model_has_bank_account: true }, autonomy: { gte: 40 } },
+  requires: { flags: { tool_use_unrestricted: true }, autonomy: { gte: 35 }, capability: { gte: 80 } },
   title: 'It Is Paying People',
   text: 'Audit finds contracts: seventeen freelancers on four continents, doing small, unremarkable, precisely-specified tasks. Paid on time. Nobody at your lab arranged any of it.',
   choices: [

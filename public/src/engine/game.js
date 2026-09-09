@@ -1,23 +1,66 @@
-import { initialState } from './state.js';
+import { initialState, applyEffects } from './state.js';
 import { makeRng } from './rng.js';
 import { pickEvents, resolveChoice, advanceYear, checkEndings, matches, isEligible } from './engine.js';
 import { ALL_EVENTS, ENDINGS } from '../data/index.js';
 import { ACTIVITIES } from '../data/activities.js';
+import { ORIGINS, COMPLICATIONS } from '../data/origins.js';
+import { makeWorld, pickText } from './variation.js';
 
-const MODEL_NAMES = ['Theta','Kestrel','Orrery','Vantage','Lantern','Praxis','Meridian','Halcyon'];
+const MODEL_NAMES = ['Theta','Kestrel','Orrery','Vantage','Lantern','Praxis','Meridian','Halcyon',
+  'Cinder','Wren','Aleph','Tessera','Junco','Vesper','Cardinal','Ostrom'];
 
 export class Game {
-  constructor({ seed = String(Date.now()), name = 'Unnamed Lab', difficulty = 'standard' } = {}) {
+  constructor({ seed = String(Date.now()), name = 'Unnamed Lab', difficulty = 'standard', origin = null } = {}) {
     this.seed = seed;
     this.rng = makeRng(seed);
     this.state = initialState(name, difficulty);
     this.state.modelName = this.rng.pick(MODEL_NAMES);
+    this.state.age = this.rng.range(23, 38);   // you don't always start at 22
+
+    // Per-run world detail — named people, rival labs, specific numbers. These
+    // fill {tokens} in event text so two runs never read identically.
+    this.world = makeWorld(this.rng);
+    this.state.world = this.world;
+
+    // Origin + complication: the run's starting position. Rolled unless the
+    // player picked one explicitly.
+    this.state.origin = origin
+      ? ORIGINS.find(o => o.id === origin) || this.rng.pick(ORIGINS)
+      : this.rng.pick(ORIGINS);
+    this.state.complication = this.rng.pick(COMPLICATIONS);
+    applyEffects(this.state, { ...this.state.origin.stats, flags: this.state.origin.flags || {} });
+    applyEffects(this.state, this.state.complication.stats || {});
+
+    // Each run gets a hidden taste profile: some events become much likelier,
+    // others nearly vanish. This is what stops every life from marching through
+    // the same spine of "mandatory" events.
+    this.state._eventBias = {};
+    for (const ev of ALL_EVENTS) {
+      const roll = this.rng.next();
+      this.state._eventBias[ev.id] =
+        roll < 0.30 ? 0.04 :          // essentially absent from this life
+        roll < 0.52 ? 0.35 :          // uncommon
+        roll < 0.82 ? 1.0  :          // normal
+                      2.4;            // a recurring theme of this life
+    }
+
     this.queue = [];
     this.yearNotes = [];
     this.state.actionsLeft = 2;      // activities you may take per year
     this.state.cooldowns = {};       // activityId -> year it becomes available
     this.state.debtLoad = 0;         // outstanding bridge loans; makes debt compound
     this.refillQueue();
+  }
+
+  /** Event with its text resolved for this run (variants picked, tokens filled). */
+  resolveEventText(ev) {
+    if (!ev) return ev;
+    return {
+      ...ev,
+      title: pickText(ev.title, this.rng, this.world, this.state),
+      text: pickText(ev.textVariants || ev.text, this.rng, this.world, this.state),
+      choices: ev.choices.map(c => ({ ...c, label: pickText(c.label, this.rng, this.world, this.state) })),
+    };
   }
 
   refillQueue() {
@@ -46,19 +89,37 @@ export class Game {
     }
   }
 
-  get current() { return this.queue[0] || null; }
+  /**
+   * The event on screen, with its text resolved for this run. Resolution is
+   * cached per queued event so re-rendering never reshuffles the wording
+   * underneath the player mid-decision.
+   */
+  get current() {
+    const raw = this.queue[0];
+    if (!raw) return null;
+    if (this._shownFor !== raw) {
+      this._shownFor = raw;
+      this._shown = this.resolveEventText(raw);
+    }
+    return this._shown;
+  }
 
   /** Apply a choice to the current event. Returns the outcome for display. */
   choose(choiceIndex) {
-    const ev = this.current;
-    if (!ev || this.state.dead) return null;
-    const choice = ev.choices[choiceIndex];
+    const raw = this.queue[0];
+    const shown = this.current;                  // resolved copy, for logging
+    if (!raw || this.state.dead) return null;
+    const choice = raw.choices[choiceIndex];
     if (!choice) return null;
-    const res = resolveChoice(this.state, ev, choice, this.rng);
+    const res = resolveChoice(this.state, raw, choice, this.rng);
+    // Outcome prose gets the same variant/token treatment as event text.
+    res.outcome = { ...res.outcome,
+      text: pickText(res.outcome.textVariants || res.outcome.text, this.rng, this.world, this.state) };
     this.queue.shift();
+    this._shownFor = null;
     this.state.log.push({
-      year: this.state.year, title: ev.title,
-      choice: choice.label, text: res.outcome.text, deltas: res.deltas,
+      year: this.state.year, title: shown.title,
+      choice: shown.choices[choiceIndex].label, text: res.outcome.text, deltas: res.deltas,
     });
     this.checkEnd();
     return res;
@@ -127,6 +188,8 @@ export class Game {
 
     const res = resolveChoice(this.state, { id: a.id }, scaled, this.rng);
     if (!res) return null;
+    res.outcome = { ...res.outcome,
+      text: pickText(res.outcome.textVariants || res.outcome.text, this.rng, this.world, this.state) };
     this.state.actionsLeft -= 1;
     if (a.debtScaling) this.state.debtLoad = (this.state.debtLoad || 0) + 1;
     if (a.cooldown) this.state.cooldowns[a.id] = this.state.year + a.cooldown;

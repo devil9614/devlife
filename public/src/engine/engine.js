@@ -58,6 +58,12 @@ export function eventWeight(state, ev) {
   // Repeats get rare, never impossible — a hard zero would starve the pool and
   // soft-lock a long run once the one-shot events are spent.
   if (seen > 0) w = Math.max(w * 0.04, w * Math.pow(0.45, seen));
+
+  // Per-run bias: each life quietly favours some events and neglects others,
+  // so two playthroughs surface different subsets of the same pool rather than
+  // marching through the whole thing. Deterministic per (run, event).
+  const bias = state._eventBias && state._eventBias[ev.id];
+  if (bias != null) w *= bias;
   return w;
 }
 

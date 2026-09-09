@@ -3,8 +3,12 @@ export default [
 {
   id: 'cofounder_split', once: true, weight: 42,
   requires: { year: { gte: 3 }, morale: { lte: 60 } },
-  title: 'Your Co-Founder Wants Out',
-  text: 'They built half of this with you. They say the lab has become something they did not sign up for, and they are not entirely wrong.',
+  title: ['Your Co-Founder Wants Out','{cofounder} Is Done','The Conversation You Avoided'],
+  textVariants: [
+    '{cofounder} built half of this with you. They say the lab has become something they did not sign up for, and they are not entirely wrong.',
+    '{cofounder} asks for a walk instead of a meeting, which is how you know.',
+    'You and {cofounder} have been having the same argument in different words for a year. Today they finish it.',
+  ],
   choices: [
     { label: 'Buy out their stake', outcomes: [
       { weight: 10, text: 'Expensive and clean. You keep control and lose the only person who ever told you no.',
@@ -75,8 +79,12 @@ export default [
 {
   id: 'insider_threat', weight: 28, maxTimes: 3,
   requires: { year: { gte: 5 }, capability: { gte: 45 } },
-  title: 'Someone Is Talking',
-  text: 'Details from internal meetings are appearing in a journalist\'s reporting with uncomfortable accuracy.',
+  title: ['Someone Is Talking','A Leak','Internal Details, External Reporting'],
+  textVariants: [
+    'Details from internal meetings are appearing in {journalist}\'s reporting with uncomfortable accuracy.',
+    'Three things said in a closed all-hands appear in {outlet} within a fortnight.',
+    'Someone in the building is talking to {journalist}, and they are quoting numbers only nine people have.',
+  ],
   choices: [
     { label: 'Launch a leak investigation', outcomes: [
       { weight: 7, text: 'You find them. The investigation itself does more damage to trust than the leaks did.',
@@ -129,8 +137,12 @@ export default [
 {
   id: 'student_letter', weight: 20, maxTimes: 4,
   requires: { reputation: { gte: 30 } },
-  title: 'A Letter From a Student',
-  text: 'A nineteen-year-old writes to say your work is why they went into the field, and asks whether they should be worried about what they are building.',
+  title: ['A Letter From a Student','Someone Is Asking You','A Nineteen-Year-Old Writes'],
+  textVariants: [
+    'A nineteen-year-old writes to say your work is why they went into the field, and asks whether they should be worried about what they are building.',
+    'A student emails a question nobody senior has asked you this plainly: is this going to be alright?',
+    'A first-year at a university in {city} writes three careful paragraphs and one hard question at the end.',
+  ],
   choices: [
     { label: 'Tell them the truth as you understand it', outcomes: [
       { weight: 10, text: 'You write two thousand honest words. They post it. It is read four million times.',

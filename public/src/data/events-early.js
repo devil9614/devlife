@@ -1,10 +1,14 @@
 // ACT I — the garage years. Low capability, no money, everything is a tradeoff.
 export default [
 {
-  id: 'first_model', once: true, weight: 60,
+  id: 'first_model', once: true, weight: 22,
   requires: { year: { lte: 3 } },
-  title: 'Your First Real Model',
-  text: 'Six weeks of nights and a rented GPU. The loss curve finally bends. It writes code that compiles. What do you do with it?',
+  title: ['Your First Real Model','The Loss Curve Bends','It Compiles'],
+  textVariants: [
+    'Six weeks of nights and a rented GPU. The loss curve finally bends. {model} writes code that compiles on the first try, and you sit looking at it for a while.',
+    'You had budgeted three months. It works in five weeks. {model} is small, strange, and unmistakably doing something you did not hand-code.',
+    'The run finishes at 4am. You read the samples twice, then wake {cofounder} to read them too. Neither of you goes back to sleep.',
+  ],
   choices: [
     { label: 'Publish the weights openly', outcomes: [
       { weight: 10, text: 'The repo hits the front page. Strangers build things you never imagined — and a few things you would rather they had not.',
@@ -21,8 +25,12 @@ export default [
 {
   id: 'seed_round', once: true, weight: 55,
   requires: { year: { gte: 1, lte: 6 }, funding: { lte: 45 } },
-  title: 'The Term Sheet',
-  text: 'An investor slides a term sheet across the table. The number is life-changing. The clause about "commercial milestones" is not.',
+  title: ['The Term Sheet','{investor} Wants In','A Number On Paper'],
+  textVariants: [
+    '{investor} slides a term sheet across the table. ${seedRound}M. The clause about "commercial milestones" is the one your lawyer circles twice.',
+    '{investor} has been emailing for a month. The offer is ${seedRound}M and a board seat, framed as a formality.',
+    'The number is ${seedRound}M, which would end the runway question for three years. The governance terms would start a different question entirely.',
+  ],
   choices: [
     { label: 'Sign it', outcomes: [
       { weight: 10, text: 'The money lands. So does a board seat, a quarterly deck, and a gentle new gravity toward shipping.',
@@ -41,8 +49,12 @@ export default [
 {
   id: 'rlhf_choice', once: true, weight: 45,
   requires: { capability: { gte: 20 } },
-  title: 'Teaching It Manners',
-  text: 'The model is capable and completely feral. It answers everything, including the things it should not.',
+  title: ['Teaching It Manners','{model} Answers Everything','The Politeness Problem'],
+  textVariants: [
+    '{model} is capable and completely feral. It answers everything, including the things it very much should not.',
+    'Internal testing turns up nine categories of output you would not want screenshotted. {model} produced all of them cheerfully.',
+    '{safetyLead} forwards a transcript with no commentary. Reading it, none is needed.',
+  ],
   choices: [
     { label: 'Full RLHF pipeline with human raters', outcomes: [
       { weight: 10, text: 'Hundreds of raters, months of work. It becomes helpful, polite, and noticeably harder to see inside.',
@@ -58,8 +70,12 @@ export default [
 {
   id: 'hire_safety', once: true, weight: 40,
   requires: { year: { gte: 2 }, talent: { gte: 15 } },
-  title: 'The Safety Hire',
-  text: 'A brilliant researcher wants to join — but only to work on interpretability. That is one fewer person shipping features.',
+  title: ['The Safety Hire','{safetyLead} Wants In','A Condition of Employment'],
+  textVariants: [
+    '{safetyLead} wants to join — but only to work on interpretability. That is one fewer person shipping features.',
+    '{safetyLead} is the best applicant you have had. They will not take the job unless interpretability gets its own budget line.',
+    'You have been trying to hire {safetyLead} for a year. They finally said yes, with one condition you were not expecting.',
+  ],
   choices: [
     { label: 'Hire them and fund the lab', outcomes: [
       { weight: 10, text: 'They build tooling that shows you, for the first time, a feature inside the model that means something.',
@@ -78,8 +94,12 @@ export default [
 {
   id: 'compute_deal', weight: 35, maxTimes: 20,
   requires: { year: { gte: 2 } },
-  title: 'More Compute',
-  text: 'A cloud provider offers a cluster at a steep discount. The contract has an unusual data-sharing appendix.',
+  title: ['More Compute','{gpuCount} Accelerators','The Cluster Question'],
+  textVariants: [
+    'A provider offers {gpuCount} accelerators at a steep discount. The contract has an unusual data-sharing appendix nobody wants to discuss.',
+    'There is capacity available in {city} — {gpuCount} chips, below market. The counterparty is vague about who else uses the racks.',
+    'Your current cluster is the bottleneck and everyone knows it. A deal appears for {gpuCount} accelerators with terms that are almost too accommodating.',
+  ],
   choices: [
     { label: 'Sign — take the compute', outcomes: [
       { weight: 10, text: 'The cluster comes online. Training runs that took months take weeks.',

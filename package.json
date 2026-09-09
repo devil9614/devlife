@@ -6,6 +6,7 @@
   "description": "A text-based AI-lab life simulator.",
   "scripts": {
     "dev": "node server.js",
+    "build": "echo 'static site — nothing to build'",
     "test": "node test/sim.test.js"
   }
 }

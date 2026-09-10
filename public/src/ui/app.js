@@ -3,6 +3,8 @@ import { STAT_DEFS } from '../engine/state.js';
 import { ACTIVITY_CATEGORIES } from '../data/activities.js';
 import { ENDINGS } from '../data/index.js';
 import { activePeople, alumni, traitOf, roleOf, spriteStyle } from '../engine/people.js';
+import { jobOf, netWorth, fmtMoney, ASSETS, STOCKS } from '../engine/life.js';
+import { LIFE_CATEGORIES, LIFE_ACTIONS } from '../data/life-activities.js';
 import { shareUrl, readSharedFromLocation } from './share.js';
 import { saveGame, loadSave, clearSave, restoreGame } from '../engine/save.js';
 
@@ -18,6 +20,7 @@ let actCat = 'research';
 let feed = [];               // life log entries rendered in the feed
 let sharedData = null;       // a life summary someone else sent us
 
+const RK = { friend:'Friend', partner:'Partner', ex:'Ex', fling:'Fling', cofounder:'Co-founder', rival:'Rival', mentor:'Mentor', investor:'Investor' };
 const TONE_COLOR = { triumph:'var(--tone-triumph)', catastrophe:'var(--tone-catastrophe)', bad:'var(--tone-bad)', grey:'var(--tone-grey)' };
 const TONE_GLOW  = { triumph:'var(--tone-triumph-glow)', catastrophe:'var(--tone-catastrophe-glow)', bad:'var(--tone-bad-glow)', grey:'var(--tone-grey-glow)' };
 
@@ -139,28 +142,47 @@ function begin(){
 
 // ---------------- chrome ----------------
 function header(){
-  const s = game.state;
+  const s = game.state, L = s.life, job = jobOf(L);
+  const nw = netWorth(L);
   return `<div class="hdr">
     <div class="pf hdr-face"><i class="sprite" style="${spriteStyle({sprite:s.founderSprite},1)}"></i></div>
     <div class="who">
-      <div class="nm">${esc(s.name)}</div>
-      <div class="sub">${esc(s.modelName)} · gen ${s.modelGen||1} · age ${s.age}</div>
+      <div class="nm">${esc(job.title)}</div>
+      <div class="sub">${esc(L.employer || s.name)} · age ${s.age}</div>
     </div>
-    <div class="yr">YEAR ${s.year}</div>
+    <div class="hdr-money">
+      <b class="${nw<0?'neg':''}">${fmtMoney(nw)}</b>
+      <span>net worth</span>
+    </div>
     <button class="hdr-menu" id="hmenu" title="Menu">⋯</button>
   </div>`;
 }
 
 function bars(){
-  const s = game.state.stats;
-  return `<div class="bars">${HEADLINE.map(([k,label,cls])=>{
-    const hi = (k==='capability') ? 260 : 100;
-    const pct = Math.max(0,Math.min(100,(s[k]/hi)*100));
-    return `<div class="bar-row">
-      <div class="t"><b>${label}</b><i>${Math.round(s[k])}</i></div>
-      <div class="track ${cls}"><i style="width:${pct}%"></i></div>
-    </div>`;
-  }).join('')}</div>`;
+  const s = game.state, st = s.stats, L = s.life;
+  const partner = L.people.find(p=>p.kind==='partner');
+  const meters = [
+    ['Happiness', L.happiness, 'c-green'],
+    ['Health', st.health, 'c-rose'],
+    ['Capability', Math.min(100,(st.capability/260)*100), 'c-blue', Math.round(st.capability)],
+    ['Control', st.containment, 'c-violet'],
+  ];
+  return `<div class="lifebar">
+    <div class="lb-row">
+      <div class="lb-cell"><span>YEAR</span><b>${s.year}</b></div>
+      <div class="lb-cell"><span>CASH</span><b>${fmtMoney(L.cash)}</b></div>
+      <div class="lb-cell"><span>${L.debt>0?'DEBT':'EQUITY'}</span>
+        <b class="${L.debt>0?'neg':''}">${L.debt>0?fmtMoney(L.debt):(L.equity>0?(L.equity*100).toFixed(0)+'%':'—')}</b></div>
+      <div class="lb-cell"><span>PARTNER</span><b>${partner?esc(partner.name.split(' ')[0]):'—'}</b></div>
+    </div>
+    <div class="meters">${meters.map(([label,val,cls,raw])=>{
+      const pct=Math.max(0,Math.min(100,val));
+      return `<div class="meter">
+        <div class="mt"><b>${label}</b><i>${raw!=null?raw:Math.round(val)}</i></div>
+        <div class="track ${cls}"><i style="width:${pct}%"></i></div>
+      </div>`;
+    }).join('')}</div>
+  </div>`;
 }
 
 function feedHtml(){
@@ -201,8 +223,8 @@ function actionBar(){
 
 function nav(){
   const items = [
-    ['life','Life','📜'],['activities','Do','⚡'],['team','Team','👥'],
-    ['model','Model','◈'],['world','World','🌐'],
+    ['life','Life','📜'],['activities','Do','⚡'],['me','Me','🧑'],
+    ['team','Team','👥'],['model','Lab','◈'],
   ];
   return `<div class="nav">${items.map(([id,l,ic])=>
     `<button data-nav="${id}" class="${tab===id?'on':''}"><span class="ic">${ic}</span>${l}</button>`).join('')}</div>`;
@@ -228,20 +250,57 @@ function sheetHtml(){
       <button class="btn" id="ok">Continue</button></div>`;
   }
   if(sheet.kind==='activities'){
-    const all=game.availableActivities();
-    const list=all.filter(a=>a.cat===actCat);
     const none=game.state.actionsLeft<=0;
-    inner=`<div class="sh-hd"><div class="k">${game.state.actionsLeft} action${game.state.actionsLeft===1?'':'s'} left this year</div><h2>Activities</h2></div>
-      <div class="cat-tabs">${ACTIVITY_CATEGORIES.map(c=>
+    const isLife=LIFE_CATEGORIES.some(c=>c.id===actCat);
+    const list = isLife
+      ? game.availableLifeActions().filter(a=>a.cat===actCat)
+      : game.availableActivities().filter(a=>a.cat===actCat);
+    const cats=[...LIFE_CATEGORIES,...ACTIVITY_CATEGORIES];
+    inner=`<div class="sh-hd"><div class="k">${game.state.actionsLeft} action${game.state.actionsLeft===1?'':'s'} left this year</div><h2>What do you do?</h2></div>
+      <div class="cat-tabs">${cats.map(c=>
         `<button data-cat="${c.id}" class="${actCat===c.id?'on':''}">${c.icon} ${c.label}</button>`).join('')}</div>
       <div class="sh-bd">
       ${list.length? list.map(a=>
-        `<button class="opt ${none?'locked':''}" data-act="${a.id}">
+        `<button class="opt ${none?'locked':''}" data-${isLife?'life':'act'}="${a.id}">
           <span><span class="ttl">${esc(a.label)}</span><span class="d">${esc(a.desc)}</span></span>
         </button>`).join('')
        : `<div class="empty">Nothing available here yet.</div>`}
       ${none?`<div class="empty">No actions left — age up to refresh.</div>`:''}
       </div>`;
+  }
+  if(sheet.kind==='shop'){
+    const L=game.state.life;
+    inner=`<div class="sh-hd"><div class="k">${fmtMoney(L.cash)} available</div><h2>Buy something</h2></div>
+      <div class="sh-bd">${ASSETS.map(a=>{
+        const owned=L.owns.some(o=>o.assetId===a.id);
+        const afford=L.cash>=a.price;
+        return `<button class="opt ${(!afford||owned)?'locked':''}" data-buy="${a.id}">
+          <span><span class="ttl">${esc(a.name)}</span><span class="d">${owned?'You own this':fmtMoney(a.price)}</span></span>
+        </button>`;}).join('')}</div>`;
+  }
+  if(sheet.kind==='invest'){
+    const L=game.state.life;
+    const amt=Math.max(1000,Math.round(L.cash*0.25));
+    inner=`<div class="sh-hd"><div class="k">Investing ${fmtMoney(amt)}</div><h2>Call your broker</h2></div>
+      <div class="sh-bd">${STOCKS.map(st=>
+        `<button class="opt" data-invest="${st.id}">
+          <span><span class="ttl">${esc(st.name)}</span>
+          <span class="d">${st.vol>0.5?'Extremely volatile':st.vol>0.25?'Volatile':'Steady'}</span></span>
+        </button>`).join('')}</div>`;
+  }
+  if(sheet.kind==='sell'){
+    const L=game.state.life;
+    const held=Object.entries(L.portfolio);
+    inner=`<div class="sh-hd"><div class="k">Your positions</div><h2>Sell</h2></div>
+      <div class="sh-bd">${held.length?held.map(([id,h])=>{
+        const st=STOCKS.find(x=>x.id===id);
+        const val=Math.round(h.shares*(h.price??h.basis));
+        const cost=Math.round(h.shares*h.basis);
+        const gain=val-cost;
+        return `<button class="opt" data-sell="${id}">
+          <span><span class="ttl">${esc(st?.name||id)}</span>
+          <span class="d">${fmtMoney(val)} · ${gain>=0?'+':''}${fmtMoney(gain)}</span></span>
+        </button>`;}).join(''):`<div class="empty">You hold nothing.</div>`}</div>`;
   }
   if(sheet.kind==='pane') inner=paneHtml(sheet.pane);
   if(sheet.kind==='menu'){
@@ -280,6 +339,44 @@ function paneHtml(which){
       ${row('Talent',Math.round(st.talent))}${row('Team morale',Math.round(st.morale))}
       ${row('Reputation',Math.round(st.reputation))}${row('Your health',Math.round(st.health))}
       ${row('Decisions made',s.log.length)}</div></div>`;
+  }
+  if(which==='me'){
+    const L=s.life, job=jobOf(L);
+    const alive=L.people.filter(p=>!p.faded);
+    const partner=alive.find(p=>p.kind==='partner');
+    const money=`<div class="pane">
+      ${row('Job',job.title)}${row('Employer',L.employer||s.name)}
+      ${row('Salary',fmtMoney(job.salary))}
+      ${row('Cash',fmtMoney(L.cash))}
+      ${L.debt>0?row('Debt','<span class="neg">'+fmtMoney(L.debt)+'</span>'):''}
+      ${L.equity>0?row('Equity',(L.equity*100).toFixed(1)+'%'):''}
+      ${row('Net worth',fmtMoney(netWorth(L)))}
+    </div>`;
+    const pcard=p=>`<div class="person">
+      <div class="pf"><i class="sprite" style="${spriteStyle(p,1)}"></i></div>
+      <div class="pb"><div class="pn">${esc(p.name)}</div>
+      <div class="pr">${esc(RK[p.kind]||p.kind)}${p.serious?' · serious':''}</div>
+      <div class="ptags"><span class="ptag ${p.closeness>60?'good':p.closeness<30?'bad':''}">closeness ${Math.round(p.closeness)}</span></div>
+      </div></div>`;
+    return `<div class="sh-hd"><div class="k">${fmtMoney(netWorth(L))} net worth</div><h2>You</h2></div>
+      <div class="sh-bd">
+        ${money}
+        ${L.kids.length?`<div class="ls-h" style="margin:18px 0 10px">Children</div>
+          ${L.kids.map(k=>`<div class="person"><div class="pf"><i class="sprite" style="${spriteStyle(k,1)}"></i></div>
+            <div class="pb"><div class="pn">${esc(k.name)}</div><div class="pr">age ${k.age}</div></div></div>`).join('')}`:''}
+        <div class="ls-h" style="margin:18px 0 10px">People</div>
+        ${alive.length?alive.map(pcard).join(''):`<div class="empty">You know a lot of colleagues and no friends.</div>`}
+        ${L.owns.length?`<div class="ls-h" style="margin:18px 0 10px">What you own</div>
+          <div class="pane">${L.owns.map(o=>{
+            const d=ASSETS.find(a=>a.id===o.assetId);
+            return row(d?d.name:o.assetId, fmtMoney(o.value));
+          }).join('')}</div>`:''}
+        ${Object.keys(L.portfolio).length?`<div class="ls-h" style="margin:18px 0 10px">Portfolio</div>
+          <div class="pane">${Object.entries(L.portfolio).map(([id,h])=>{
+            const st=STOCKS.find(x=>x.id===id);
+            return row(st?st.name:id, fmtMoney(Math.round(h.shares*(h.price??h.basis))));
+          }).join('')}</div>`:''}
+      </div>`;
   }
   if(which==='team'){
     const roster=activePeople(s), gone=alumni(s);
@@ -498,6 +595,21 @@ function onChoice(i){
   render();
 }
 
+function onLifeAction(id){
+  // A few actions open a picker instead of resolving immediately.
+  if(id==='buy_asset'){ sheet={kind:'shop'}; render(); return; }
+  if(id==='invest'){ sheet={kind:'invest'}; render(); return; }
+  if(id==='sell_stock'){ sheet={kind:'sell'}; render(); return; }
+  snapshotRoster();
+  const res=game.doLifeAction(id);
+  if(!res) return;
+  const last=game.state.log[game.state.log.length-1];
+  pushFeed({kind:'life',lbl:last.title,text:res.outcome.text,deltas:res.deltas});
+  if(game.isOver){ screen='ending'; sheet=null; }
+  render();
+  const f=$('#feed'); if(f) f.scrollTop=f.scrollHeight;
+}
+
 function onActivity(id){
   snapshotRoster();
   const res=game.doActivity(id);
@@ -549,6 +661,20 @@ function render(){
   });
   app.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>onChoice(+b.dataset.ch));
   app.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>onActivity(b.dataset.act));
+  app.querySelectorAll('[data-life]').forEach(b=>b.onclick=()=>onLifeAction(b.dataset.life));
+  app.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{
+    const r=game.doLifeAction('buy_asset',{assetId:b.dataset.buy});
+    if(r){ pushFeed({kind:'life',lbl:'Purchase',text:r.outcome.text,deltas:r.deltas}); sheet=null; render(); }
+  });
+  app.querySelectorAll('[data-invest]').forEach(b=>b.onclick=()=>{
+    const amt=Math.max(1000,Math.round(game.state.life.cash*0.25));
+    const r=game.doLifeAction('invest',{stockId:b.dataset.invest,amount:amt});
+    if(r){ pushFeed({kind:'life',lbl:'Investment',text:r.outcome.text,deltas:r.deltas}); sheet=null; render(); }
+  });
+  app.querySelectorAll('[data-sell]').forEach(b=>b.onclick=()=>{
+    const r=game.doLifeAction('sell_stock',{stockId:b.dataset.sell});
+    if(r){ pushFeed({kind:'life',lbl:'Sold',text:r.outcome.text,deltas:r.deltas}); sheet=null; render(); }
+  });
   app.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{actCat=b.dataset.cat;render();});
   const hm=$('#hmenu'); if(hm) hm.onclick=()=>{ sheet={kind:'menu'}; render(); };
   const mClose=$('#m-close'); if(mClose) mClose.onclick=()=>{ sheet=null; render(); };

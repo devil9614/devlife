@@ -404,3 +404,27 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .ls-people{display:flex;flex-wrap:wrap;gap:10px}
 .ls-person{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-2);
   background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:5px 10px 5px 5px}
+
+/* ---------- money-first header ---------- */
+.hdr-money{margin-left:auto;text-align:right;flex:none;line-height:1.15}
+.hdr-money b{display:block;font-family:var(--mono);font-size:15px;color:var(--brand);letter-spacing:-.01em}
+.hdr-money b.neg{color:var(--rose)}
+.hdr-money span{font-size:9px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.09em}
+
+/* ---------- concrete life strip ---------- */
+.lifebar{flex:none;background:var(--surface);border-bottom:1px solid var(--line);padding:10px 14px 12px}
+.lb-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:11px}
+.lb-cell{background:#0d1219;border:1px solid var(--line);border-radius:9px;padding:7px 8px;text-align:center;min-width:0}
+.lb-cell span{display:block;font-size:8.5px;color:var(--ink-3);letter-spacing:.09em;margin-bottom:2px}
+.lb-cell b{font-family:var(--mono);font-size:13px;color:var(--ink);
+  display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-cell b.neg{color:var(--rose)}
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:7px 14px}
+.meter .mt{display:flex;justify-content:space-between;font-size:10.5px;margin-bottom:3px}
+.meter .mt b{font-weight:600;color:var(--ink-3)}
+.meter .mt i{font-style:normal;font-family:var(--mono);color:var(--ink-2)}
+.meter .track{height:4px;background:#0a0e15;border-radius:99px;overflow:hidden}
+.meter .track i{display:block;height:100%;border-radius:99px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+
+.neg{color:var(--rose)}
+.ent.life{border-left-color:var(--amber)} .ent.life .lbl{color:var(--amber)}

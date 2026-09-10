@@ -6,6 +6,9 @@ import { ACTIVITIES } from '../data/activities.js';
 import { ORIGINS, COMPLICATIONS } from '../data/origins.js';
 import { makeWorld, pickText } from './variation.js';
 import { foundingTeam, tickPeople, makePerson, activePeople } from './people.js';
+import { initialLife, tickLife, jobOf, netWorth, fmtMoney } from './life.js';
+import { HANDLERS } from './life-handlers.js';
+import { LIFE_ACTIONS } from '../data/life-activities.js';
 
 const MODEL_NAMES = ['Theta','Kestrel','Orrery','Vantage','Lantern','Praxis','Meridian','Halcyon',
   'Cinder','Wren','Aleph','Tessera','Junco','Vesper','Cardinal','Ostrom'];
@@ -47,6 +50,9 @@ export class Game {
 
     // The lab is people. Seeded here so year 0 already has named humans in it.
     this.state.founderSprite = this.rng.int(1000);
+    // The life layer: money, career, relationships, possessions.
+    this.state.life = initialLife(this.rng);
+    this.state.life.jobIndex = this.rng.range(1, 3);
     this.state.people = foundingTeam(this.rng, 0);
     this._rosterNotes = [];
 
@@ -166,6 +172,60 @@ export class Game {
     }
   }
 
+  /** Life actions available right now, with lock reasons. */
+  availableLifeActions() {
+    const L = this.state.life;
+    return LIFE_ACTIONS.filter(a => {
+      const cd = this.state.cooldowns[a.id];
+      if (cd != null && this.state.year < cd) return false;
+      const r = a.requires || {};
+      if (r.hasJob && L.jobIndex <= 0) return false;
+      if (r.minJob != null && L.jobIndex < r.minJob) return false;
+      if (r.notFounder && L.equity > 0) return false;
+      if (r.isFounder && L.equity <= 0) return false;
+      if (r.minCash != null && L.cash < r.minCash) return false;
+      if (r.hasDebt && L.debt <= 0) return false;
+      if (r.hasPortfolio && !Object.keys(L.portfolio).length) return false;
+      if (r.hasPeople && !L.people.filter(p => !p.faded).length) return false;
+      if (r.single && L.people.some(p => p.kind === 'partner')) return false;
+      if (r.hasPartner && !L.people.some(p => p.kind === 'partner')) return false;
+      if (r.hasCofounder && !L.people.some(p => p.kind === 'cofounder')) return false;
+      return true;
+    });
+  }
+
+  /** Perform a life action. Costs one action for the year. */
+  doLifeAction(id, opts = {}) {
+    if (this.state.dead || this.state.actionsLeft <= 0) return null;
+    const a = LIFE_ACTIONS.find(x => x.id === id);
+    if (!a) return null;
+    const fn = HANDLERS[a.handler];
+    if (!fn) return null;
+    const res = fn(this.state, this.rng, opts);
+    if (!res) return null;
+    this.state.actionsLeft -= 1;
+    if (a.cooldown) this.state.cooldowns[a.id] = this.state.year + a.cooldown;
+
+    // Life deltas may touch both life stats and lab stats.
+    const deltas = {};
+    for (const [k, v] of Object.entries(res.deltas || {})) {
+      if (k === 'happiness' || k === 'energy') {
+        this.state.life[k] = Math.max(0, Math.min(100, this.state.life[k] + v));
+        deltas[k] = v;
+      } else if (k in this.state.stats) {
+        const before = this.state.stats[k];
+        const hi = k === 'capability' ? 260 : 100;
+        this.state.stats[k] = Math.max(0, Math.min(hi, before + v));
+        const d = this.state.stats[k] - before;
+        if (d) deltas[k] = d;
+      }
+    }
+    this.state.log.push({ year: this.state.year, title: a.label, choice: 'life',
+      text: res.text, deltas, kind: 'life' });
+    this.checkEnd();
+    return { outcome: { text: res.text }, deltas };
+  }
+
   /** Roster changes produced by the last action, for the UI to surface. */
   takeRosterNotes() { const n = this._rosterNotes; this._rosterNotes = []; return n; }
 
@@ -174,6 +234,7 @@ export class Game {
     if (this.state.dead) return [];
     this.yearNotes = advanceYear(this.state, this.rng);
     this.yearNotes.push(...tickPeople(this.state, this.rng));
+    this.yearNotes.push(...tickLife(this.state, this.rng));
     this.state.actionsLeft = 2;
     this.checkEnd();
     if (!this.state.dead) this.refillQueue();

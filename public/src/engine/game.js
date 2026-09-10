@@ -46,6 +46,7 @@ export class Game {
     }
 
     // The lab is people. Seeded here so year 0 already has named humans in it.
+    this.state.founderSprite = this.rng.int(1000);
     this.state.people = foundingTeam(this.rng, 0);
     this._rosterNotes = [];
 

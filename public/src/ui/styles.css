@@ -271,12 +271,13 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
   border:1px solid var(--line-2);border-radius:18px;padding:18px;margin-bottom:18px;
   box-shadow:0 18px 44px -26px #000}
 .cc-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
-.cc-lab{font-size:19px;font-weight:700;letter-spacing:-.015em;line-height:1.2;
-  outline:none;border-bottom:1px dashed transparent;padding-bottom:1px}
+.cc-lab{font-size:17.5px;font-weight:700;letter-spacing:-.02em;line-height:1.25;
+  outline:none;border-bottom:1px dashed transparent;padding-bottom:1px;
+  overflow-wrap:break-word}
 .cc-lab:focus{border-bottom-color:var(--brand)}
-.cc-meta{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:5px}
+.cc-meta{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:5px;line-height:1.45}
 .cc-meta b{color:var(--ink-2)}
-.cc-reroll{margin-left:auto;flex:none;width:38px;height:38px;border-radius:11px;
+.cc-reroll{margin-left:auto;flex:none;width:34px;height:34px;border-radius:11px;
   background:var(--raised);border:1px solid var(--line-2);color:var(--ink-2);font-size:17px;
   transition:.16s}
 .cc-reroll:active{transform:rotate(180deg) scale(.94)}
@@ -364,3 +365,42 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .opt.danger-opt .ttl{color:var(--rose)}
 @media(hover:hover){.opt.danger-opt:hover{border-color:var(--rose);background:#25141a}}
 .btn.danger-btn{background:var(--rose);color:#2a0910}
+
+/* ---------- pixel-art portraits ---------- */
+.sprite{
+  display:block;
+  image-rendering:pixelated;image-rendering:crisp-edges;
+  background-repeat:no-repeat;
+}
+/* portrait frame: crop to head+torso, sprite is 32x64 full-body */
+.pf{
+  width:44px;height:44px;overflow:hidden;position:relative;
+  background:linear-gradient(180deg,#16202e,#0e1620);
+  border:1px solid var(--line-2);border-radius:12px;
+  display:block;padding:0;
+}
+.pf .sprite{position:absolute;left:50%;margin-left:-16px;top:-4px}
+.person.gone .pf{filter:grayscale(1) brightness(.7)}
+
+/* founder portrait in the header */
+.hdr-face{width:38px;height:38px;flex:none;border-radius:10px}
+.hdr-face .sprite{top:-3px}
+/* larger founder portrait on the character card */
+.cc-face{width:56px;height:56px;flex:none;border-radius:14px;margin-right:11px}
+.cc-face .sprite{margin-left:-32px;top:-6px}
+/* founding-team strip */
+.cc-team{border-top:1px solid var(--line);padding-top:12px;margin-bottom:12px}
+.cc-team-lbl{display:block;font-size:9.5px;color:var(--ink-3);text-transform:uppercase;
+  letter-spacing:.08em;margin-bottom:8px}
+.cc-faces{display:flex;gap:7px}
+.pf.mini{width:34px;height:34px;border-radius:9px}
+.pf.mini .sprite{top:-2px;margin-left:-16px}
+
+/* faces inline in the life feed */
+.ent-faces{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:10px}
+.ent-face-name{font-size:12px;color:var(--ink-2);margin-right:6px}
+
+/* team on the life summary */
+.ls-people{display:flex;flex-wrap:wrap;gap:10px}
+.ls-person{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-2);
+  background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:5px 10px 5px 5px}

@@ -2,7 +2,7 @@ import { Game } from '../engine/game.js';
 import { STAT_DEFS } from '../engine/state.js';
 import { ACTIVITY_CATEGORIES } from '../data/activities.js';
 import { ENDINGS } from '../data/index.js';
-import { activePeople, alumni, traitOf, roleOf } from '../engine/people.js';
+import { activePeople, alumni, traitOf, roleOf, spriteStyle } from '../engine/people.js';
 import { shareUrl, readSharedFromLocation } from './share.js';
 import { saveGame, loadSave, clearSave, restoreGame } from '../engine/save.js';
 
@@ -62,7 +62,8 @@ function renderStart(){
 
       <div class="char-card">
         <div class="cc-top">
-          <div>
+          <div class="pf cc-face"><i class="sprite" style="${spriteStyle({sprite:s.founderSprite},2)}"></i></div>
+          <div style="min-width:0">
             <div class="cc-lab" id="labname" contenteditable="true" spellcheck="false">${esc(s.name)}</div>
             <div class="cc-meta">founded at ${s.age} · first model <b>${esc(s.modelName)}</b></div>
           </div>
@@ -75,6 +76,13 @@ function renderStart(){
             ${c.id!=='none'?`<span class="cc-tag alt">${esc(c.label)}</span>`:''}
           </div>
           <p class="cc-opener">${esc(o.opener)}${c.opener?' '+esc(c.opener):''}</p>
+        </div>
+
+        <div class="cc-team">
+          <span class="cc-team-lbl">Founding team</span>
+          <div class="cc-faces">
+            ${s.people.map(p=>`<div class="pf mini" title="${esc(p.name)}"><i class="sprite" style="${spriteStyle(p,1)}"></i></div>`).join('')}
+          </div>
         </div>
 
         <div class="cc-stats">
@@ -125,6 +133,7 @@ function begin(){
     { kind:'evt', lbl:'Year 0', text:`You found ${game.state.name}. The first model is called ${game.state.modelName}.` },
   ];
   screen = 'play'; sheet = null; tab='life';
+  snapshotRoster();
   render();
 }
 
@@ -132,6 +141,7 @@ function begin(){
 function header(){
   const s = game.state;
   return `<div class="hdr">
+    <div class="pf hdr-face"><i class="sprite" style="${spriteStyle({sprite:s.founderSprite},1)}"></i></div>
     <div class="who">
       <div class="nm">${esc(s.name)}</div>
       <div class="sub">${esc(s.modelName)} · gen ${s.modelGen||1} · age ${s.age}</div>
@@ -168,9 +178,14 @@ function feedHtml(){
     const mag = f.deltas ? Object.values(f.deltas).reduce((a,v)=>a+Math.abs(v),0) : 0;
     // Calibrated against real delta magnitudes (median ~22, max ~36).
     const weightCls = mag >= 30 ? ' major' : (!f.deltas && !f.lbl) ? ' quiet' : '';
+    const faces = (f.faces && f.faces.length)
+      ? `<div class="ent-faces">${f.faces.map(p=>
+          `<div class="pf mini" title="${esc(p.name)}"><i class="sprite" style="${spriteStyle(p,1)}"></i></div>`
+          + `<span class="ent-face-name">${esc(p.name)}</span>`).join('')}</div>`
+      : '';
     out += `<div class="ent ${f.kind||''}${weightCls}">
       ${f.lbl?`<div class="lbl">${esc(f.lbl)}</div>`:''}
-      <p>${esc(f.text)}</p>${chips}</div>`;
+      <p>${esc(f.text)}</p>${faces}${chips}</div>`;
   }
   return `<div class="feed" id="feed">${out}</div>`;
 }
@@ -272,7 +287,7 @@ function paneHtml(which){
       const t=traitOf(p), r=roleOf(p), tenure=s.year-p.joinedYear;
       const mood=p.morale>=65?'good':p.morale>=35?'mid':'bad';
       return `<div class="person">
-        <div class="pf">${esc(p.name.split(' ').map(x=>x[0]).join(''))}</div>
+        <div class="pf"><i class="sprite" style="${spriteStyle(p,1)}"></i></div>
         <div class="pb">
           <div class="pn">${esc(p.name)}</div>
           <div class="pr">${esc(r.label)} · ${tenure===0?'joined this year':tenure+'y'}</div>
@@ -289,7 +304,7 @@ function paneHtml(which){
       ${roster.length?roster.map(card).join(''):`<div class="empty">Nobody works here yet.</div>`}
       ${gone.length?`<div class="ls-h" style="margin:18px 0 10px">Departed</div>
         ${gone.map(p=>`<div class="person gone">
-          <div class="pf">${esc(p.name.split(' ').map(x=>x[0]).join(''))}</div>
+          <div class="pf"><i class="sprite" style="${spriteStyle(p,1)}"></i></div>
           <div class="pb"><div class="pn">${esc(p.name)}</div>
           <div class="pr">${esc(roleOf(p).label)} · left year ${p.history[p.history.length-1]?.year ?? '?'}</div></div>
         </div>`).join('')}`:''}
@@ -345,7 +360,7 @@ function flagsHtml(flags){
 // Renders the full summary card from a plain data object so the same markup
 // serves both a finished run (rich, from `game`) and a shared link (from the
 // compact packed payload — fewer moments, no live game object).
-function summaryHtml({ tone, title, text, name, modelName, year, decisions, stats, moments, flags, isLive, seed }){
+function summaryHtml({ tone, title, text, name, modelName, year, decisions, stats, moments, flags, isLive, seed, people }){
   const c = TONE_COLOR[tone] || TONE_COLOR.grey, glow = TONE_GLOW[tone] || TONE_GLOW.grey;
   return `<div class="life-summary" style="--tone-c:${c};--tone-glow:${glow}">
     <div class="ls-hero">
@@ -369,6 +384,12 @@ function summaryHtml({ tone, title, text, name, modelName, year, decisions, stat
       ${moments.length?`<div class="ls-section">
         <div class="ls-h">Defining moments</div>
         ${momentsHtml(moments)}
+      </div>`:''}
+      ${people && people.length?`<div class="ls-section">
+        <div class="ls-h">Who was there at the end</div>
+        <div class="ls-people">${people.map(p=>
+          `<div class="ls-person"><div class="pf mini"><i class="sprite" style="${spriteStyle(p,1)}"></i></div>
+           <span>${esc(p.name)}</span></div>`).join('')}</div>
       </div>`:''}
       <div class="ls-section" style="margin-bottom:8px">
         <div class="ls-h">World left behind</div>
@@ -407,6 +428,7 @@ function renderEnding(){
     name:game.state.name, modelName:game.state.modelName,
     year:game.state.year, decisions:game.state.log.length,
     stats:s, moments, flags, isLive:true, seed:game.seed,
+    people: activePeople(game.state).slice(0,8).map(p=>({sprite:p.sprite,name:p.name})),
   });
 
   $('#again').onclick=()=>{screen='start';render();};
@@ -449,21 +471,40 @@ function openEvent(){
 
 function pushFeed(entry){ feed.push({...entry, year:game.state.year}); }
 
+// People who joined as a result of the action just taken, so the feed can
+// show their faces rather than only saying "talent +12".
+// Compares roster identity before/after rather than parsing note strings.
+let _rosterSnapshot = new Set();
+function snapshotRoster(){
+  _rosterSnapshot = new Set(game.state.people.map(p=>p.id));
+}
+function newcomerFaces(){
+  game.takeRosterNotes?.();                    // drain, we use ids instead
+  const added = game.state.people.filter(p=>!_rosterSnapshot.has(p.id));
+  snapshotRoster();
+  if(!added.length) return null;
+  return added.map(p=>({sprite:p.sprite,name:p.name}));
+}
+
 function onChoice(i){
   const ev=game.current;
+  snapshotRoster();
   const res=game.choose(i);
   if(!res) return;
-  pushFeed({kind:'evt',lbl:ev.title,text:res.outcome.text,deltas:res.deltas});
+  pushFeed({kind:'evt',lbl:ev.title,text:res.outcome.text,deltas:res.deltas,
+    faces:newcomerFaces()});
   sheet={kind:'outcome',title:ev.title,text:res.outcome.text,deltas:res.deltas};
   if(game.isOver){ screen='ending'; sheet=null; }
   render();
 }
 
 function onActivity(id){
+  snapshotRoster();
   const res=game.doActivity(id);
   if(!res) return;
   const last=game.state.log[game.state.log.length-1];
-  pushFeed({kind:'act',lbl:last.title,text:res.outcome.text,deltas:res.deltas});
+  pushFeed({kind:'act',lbl:last.title,text:res.outcome.text,deltas:res.deltas,
+    faces:newcomerFaces()});
   if(game.isOver){ screen='ending'; sheet=null; }
   render();
   const f=$('#feed'); if(f) f.scrollTop=f.scrollHeight;

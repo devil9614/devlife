@@ -40,10 +40,22 @@ export function makePerson(rng, { role = null, quality = null } = {}) {
     loyalty: rng.range(40, 85),  // resists poaching
     morale: rng.range(45, 85),
     trait: rng.pick(TRAITS).id,
+    sprite: rng.int(1000),       // index into the 1000-frame portrait atlas
     joinedYear: 0,
     status: 'active',            // active | left | fired
     history: [],                 // notable moments, shown on their card
   };
+}
+
+// Portrait atlas: 1000 front-facing 32x64 frames in a 40-column grid.
+export const SPRITE = { cols: 40, w: 32, h: 64, count: 1000, src: '/assets/people.png' };
+export function spriteStyle(p, scale = 1) {
+  const i = (p.sprite ?? 0) % SPRITE.count;
+  const x = (i % SPRITE.cols) * SPRITE.w, y = Math.floor(i / SPRITE.cols) * SPRITE.h;
+  return `background-image:url(${SPRITE.src});`
+    + `background-position:-${x * scale}px -${y * scale}px;`
+    + `background-size:${SPRITE.cols * SPRITE.w * scale}px auto;`
+    + `width:${SPRITE.w * scale}px;height:${SPRITE.h * scale}px;`;
 }
 
 export function traitOf(p) { return TRAITS.find(t => t.id === p.trait) || TRAITS[0]; }

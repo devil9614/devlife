@@ -310,9 +310,6 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
   background:linear-gradient(180deg,var(--surface),var(--surface-2));
   border:1px solid var(--line);border-radius:14px}
 .person.gone{opacity:.45}
-.pf{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
-  font-family:var(--mono);font-size:13px;font-weight:700;color:var(--brand);
-  background:#0e2b22;border:1px solid #1c5a45}
 .person.gone .pf{background:var(--raised);border-color:var(--line-2);color:var(--ink-3)}
 .pb{min-width:0;flex:1}
 .pn{font-weight:650;font-size:14.5px;letter-spacing:-.01em}
@@ -373,28 +370,31 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
   background-repeat:no-repeat;
 }
 /* portrait frame: crop to head+torso, sprite is 32x64 full-body */
+/* Portrait frame. Sprites are 32x64 full-body; a head-only crop makes every
+   character look identical, so show head + torso (the top ~46px) where the
+   hair, face and clothing that actually distinguish people all live. */
 .pf{
-  width:44px;height:44px;overflow:hidden;position:relative;
-  background:linear-gradient(180deg,#16202e,#0e1620);
-  border:1px solid var(--line-2);border-radius:12px;
+  width:40px;height:52px;overflow:hidden;position:relative;flex:none;
+  background:linear-gradient(180deg,#1a2434,#0e1620);
+  border:1px solid var(--line-2);border-radius:10px;
   display:block;padding:0;
 }
-.pf .sprite{position:absolute;left:50%;margin-left:-16px;top:-4px}
+.pf .sprite{position:absolute;left:50%;margin-left:-16px;top:-2px}
 .person.gone .pf{filter:grayscale(1) brightness(.7)}
 
 /* founder portrait in the header */
-.hdr-face{width:38px;height:38px;flex:none;border-radius:10px}
-.hdr-face .sprite{top:-3px}
+.hdr-face{width:30px;height:40px;flex:none;border-radius:8px}
+.hdr-face .sprite{top:-1px}
 /* larger founder portrait on the character card */
-.cc-face{width:56px;height:56px;flex:none;border-radius:14px;margin-right:11px}
-.cc-face .sprite{margin-left:-32px;top:-6px}
+.cc-face{width:60px;height:80px;flex:none;border-radius:12px;margin-right:12px}
+.cc-face .sprite{margin-left:-32px;top:-4px}
 /* founding-team strip */
 .cc-team{border-top:1px solid var(--line);padding-top:12px;margin-bottom:12px}
 .cc-team-lbl{display:block;font-size:9.5px;color:var(--ink-3);text-transform:uppercase;
   letter-spacing:.08em;margin-bottom:8px}
 .cc-faces{display:flex;gap:7px}
-.pf.mini{width:34px;height:34px;border-radius:9px}
-.pf.mini .sprite{top:-2px;margin-left:-16px}
+.pf.mini{width:32px;height:42px;border-radius:8px}
+.pf.mini .sprite{top:-1px;margin-left:-16px}
 
 /* faces inline in the life feed */
 .ent-faces{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:10px}

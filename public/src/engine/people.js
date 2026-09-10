@@ -2,10 +2,29 @@
 // arrive, get better or burn out, disagree with you, and leave. BitLife's
 // relationships tab is half its soul; this is the equivalent.
 
-const GIVEN = ['Mira','Tomas','Ada','Jun','Priya','Nils','Fatima','Owen','Leila','Kwame','Sasha','Ines',
-  'Dmitri','Nora','Hugo','Yara','Elif','Rafael','Anya','Theo','Amara','Bo','Clara','Idris','Mei','Ravi'];
-const FAMILY = ['Reyes','Okonkwo','Lindqvist','Baptiste','Nakamura','Varga','Osei','Krishnan','Moreau',
-  'Dvorak','Silva','Haddad','Novak','Ferreira','Adeyemi','Solberg','Bianchi','Ilves','Mensah','Costa'];
+// Wide, deliberately international pools. A long run hires dozens of people;
+// with a small pool the birthday paradox produces duplicate names fast.
+export const GIVEN_NAMES = [
+  'Mira','Tomas','Ada','Jun','Priya','Nils','Fatima','Owen','Leila','Kwame','Sasha','Ines',
+  'Dmitri','Nora','Hugo','Yara','Elif','Rafael','Anya','Theo','Amara','Bo','Clara','Idris','Mei','Ravi',
+  'Sofia','Arjun','Lena','Kofi','Noor','Emil','Rin','Tobias','Zara','Marek','Aiko','Samir','Freya','Hassan',
+  'Camila','Dario','Inga','Olu','Petra','Quan','Rosa','Sven','Tariq','Ulla','Viktor','Wen','Xiomara','Yusuf',
+  'Zoya','Anders','Bianca','Chidi','Dara','Esben','Farida','Gabriel','Hana','Ivan','Jelena','Karim','Lucia',
+  'Matteo','Nadia','Oskar','Pilar','Rania','Stefan','Thandi','Umberto','Vera','Wojciech','Yusra','Zeynep',
+  'Akira','Beatriz','Cyrus','Dilnoza','Eero','Fanny','Goran','Hilde','Iris','Jonas','Kaia','Lars','Maja',
+  'Niamh','Otto','Paloma','Rasmus','Sana','Tove','Ugo','Valentina','Wiktor','Yohan','Zainab',
+];
+export const FAMILY_NAMES = [
+  'Reyes','Okonkwo','Lindqvist','Baptiste','Nakamura','Varga','Osei','Krishnan','Moreau',
+  'Dvorak','Silva','Haddad','Novak','Ferreira','Adeyemi','Solberg','Bianchi','Ilves','Mensah','Costa',
+  'Andersen','Brennan','Chowdhury','Dagher','Eriksen','Fontaine','Gallagher','Hoffmann','Ibrahim','Jansen',
+  'Kaur','Larsen','Maalouf','Nguyen','Oyelaran','Petrov','Quintero','Rossi','Schneider','Tanaka',
+  'Ustinov','Valdez','Wagner','Yamamoto','Zielinski','Abadi','Bergstrom','Castellanos','Dubois','Engel',
+  'Farkas','Grigoryan','Hussain','Iversen','Jimenez','Kowalski','Lombardi','Mbeki','Nowak','Ortega',
+  'Palmer','Rahman','Sandoval','Toure','Ulrich','Vasquez','Weber','Xu','Yilmaz','Zhang',
+  'Ahmadi','Bakker','Cardoso','Delgado','Ekwueme','Fischer','Gustafsson','Hernandez','Ivanova','Joshi',
+  'Kimura','Lindholm','Moreno','Nkemelu','Olsen','Pereira','Rasmussen','Suzuki','Trevino','Vinter',
+];
 
 export const ROLES = {
   research:   { label: 'Research Lead',    drives: 'capability' },
@@ -29,12 +48,26 @@ export const TRAITS = [
   { id: 'ambitious',   label: 'Ambitious',      good: false, note: 'Wants your chair, eventually.' },
 ];
 
-export function makePerson(rng, { role = null, quality = null } = {}) {
+export function makePerson(rng, { role = null, quality = null, taken = null } = {}) {
   const roleId = role || rng.pick(Object.keys(ROLES));
   const skill = quality != null ? quality : rng.range(35, 80);
+  // Colleagues must have distinct names — a duplicate on the roster reads as a
+  // bug. Retry a bounded number of times, then fall back to a middle initial.
+  let name = `${rng.pick(GIVEN_NAMES)} ${rng.pick(FAMILY_NAMES)}`;
+  if (taken) {
+    let tries = 0;
+    while (taken.has(name) && tries++ < 24) {
+      name = `${rng.pick(GIVEN_NAMES)} ${rng.pick(FAMILY_NAMES)}`;
+    }
+    if (taken.has(name)) {
+      const initial = String.fromCharCode(65 + rng.int(26));
+      const [g, f] = name.split(' ');
+      name = `${g} ${initial}. ${f}`;
+    }
+  }
   return {
     id: 'p' + rng.int(1e9).toString(36) + rng.int(1e6).toString(36),
-    name: `${rng.pick(GIVEN)} ${rng.pick(FAMILY)}`,
+    name,
     role: roleId,
     skill,                       // 0-100, grows with tenure
     loyalty: rng.range(40, 85),  // resists poaching
@@ -65,8 +98,10 @@ export function roleOf(p) { return ROLES[p.role] || ROLES.research; }
 export function foundingTeam(rng, year = 0) {
   const n = rng.range(1, 3);
   const roles = rng.shuffle(['research', 'infra', 'safety']).slice(0, n);
+  const taken = new Set();
   return roles.map(r => {
-    const p = makePerson(rng, { role: r, quality: rng.range(40, 70) });
+    const p = makePerson(rng, { role: r, quality: rng.range(40, 70), taken });
+    taken.add(p.name);
     p.joinedYear = year;
     p.history.push({ year, text: 'Founding team.' });
     return p;

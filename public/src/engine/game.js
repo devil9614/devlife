@@ -143,8 +143,10 @@ export class Game {
       const n = typeof hires === 'number' ? hires : (hires.count || 1);
       const role = typeof hires === 'object' ? hires.role : null;
       const q = typeof hires === 'object' ? hires.quality : null;
+      const taken = new Set(this.state.people.map(x => x.name));
       for (let i = 0; i < n; i++) {
-        const p = makePerson(this.rng, { role, quality: q });
+        const p = makePerson(this.rng, { role, quality: q, taken });
+        taken.add(p.name);
         p.joinedYear = this.state.year;
         p.history.push({ year: this.state.year, text: 'Joined the lab.' });
         this.state.people.push(p);

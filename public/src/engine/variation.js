@@ -7,8 +7,8 @@
 //     companies, numbers) that persist for the run, so "Dr. Reyes" is the same
 //     person every time she is mentioned within one life.
 
-const FIRST = ['Reyes','Okonkwo','Lindqvist','Baptiste','Nakamura','Varga','Osei','Krishnan','Moreau','Dvorak','Silva','Haddad','Novak','Ferreira','Adeyemi','Solberg'];
-const GIVEN = ['Mira','Tomas','Ada','Jun','Priya','Nils','Fatima','Owen','Leila','Kwame','Sasha','Ines','Dmitri','Nora','Hugo','Yara'];
+// Shared with people.js — event text names should draw from the same world.
+import { GIVEN_NAMES as GIVEN, FAMILY_NAMES as FIRST } from './people.js';
 const LABS  = ['Ardent','Northgate','Vela','Cormorant','Basilisk','Tessellate','Ninefold','Hollow Point','Cassini Works','Bright Harbor','Ophir','Longitude'];
 const PAPERS = ['a scaling analysis','a mechanistic write-up','a safety case','an eval methodology','a training-dynamics note'];
 const OUTLETS = ['a national broadsheet','a technology desk','an investigative outlet','a trade publication','a widely-read newsletter'];

@@ -3,6 +3,8 @@ import { Game } from '../public/src/engine/game.js';
 import { syncObserved, capabilityEstimate } from '../public/src/engine/state.js';
 import { checkEndings } from '../public/src/engine/engine.js';
 import { ORIGINS, OPENING_BEATS } from '../public/src/data/origins.js';
+import { ACTIVITIES } from '../public/src/data/activities.js';
+import { LIFE_ACTIONS } from '../public/src/data/life-activities.js';
 
 // These are deliberately direct system checks. The long random simulation
 // exercises breadth; this locks down the connected loops a player can see.
@@ -194,4 +196,15 @@ console.log('life systems: connected finance, relationships, and crypto verified
     assert(OPENING_BEATS[o.id], `origin ${o.id} has an authored opening beat`);
   }
   console.log('guided first year: every origin opens on its own decision');
+}
+
+// ---- Action rows ---------------------------------------------------------
+// Rows are icon + name only: the player learns what a thing does by doing it.
+// Every action therefore needs an icon, since it is now the only visual anchor.
+{
+  const missingAct = ACTIVITIES.filter(a => !a.icon).map(a => a.id);
+  const missingLife = LIFE_ACTIONS.filter(a => !a.icon).map(a => a.id);
+  assert.equal(missingAct.length, 0, 'every activity has an icon: ' + missingAct.join(', '));
+  assert.equal(missingLife.length, 0, 'every life action has an icon: ' + missingLife.join(', '));
+  console.log('action rows: all ' + (ACTIVITIES.length + LIFE_ACTIONS.length) + ' actions carry an icon');
 }

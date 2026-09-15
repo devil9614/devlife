@@ -13,7 +13,7 @@ export const ACTIVITY_CATEGORIES = [
 export const ACTIVITIES = [
 // ---------------- RESEARCH ----------------
 {
-  id: 'act_scale_run', cat: 'research', label: 'Launch a scaling run',
+  id: 'act_scale_run', icon: '📈', cat: 'research', label: 'Launch a scaling run',
   desc: 'Burn compute for capability. The reliable lever.',
   requires: { compute: { gte: 10 }, funding: { gte: 12 } },
   outcomes: [
@@ -26,7 +26,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_interp_study', cat: 'research', label: 'Run an interpretability study',
+  id: 'act_interp_study', icon: '🔬', cat: 'research', label: 'Run an interpretability study',
   desc: 'Slow, unglamorous, and the only thing that buys you sight.',
   requires: { funding: { gte: 8 } },
   outcomes: [
@@ -37,7 +37,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_red_team', cat: 'research', label: 'Red-team the model',
+  id: 'act_red_team', icon: '🎯', cat: 'research', label: 'Red-team the model',
   desc: 'Pay people to break it before someone else does.',
   requires: { capability: { gte: 25 }, funding: { gte: 10 } },
   outcomes: [
@@ -50,7 +50,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_publish', cat: 'research', label: 'Publish a paper',
+  id: 'act_publish', icon: '📄', cat: 'research', label: 'Publish a paper',
   desc: 'Trade a little edge for a lot of standing.',
   requires: { capability: { gte: 15 } },
   outcomes: [
@@ -61,7 +61,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_replicate', cat: 'research', label: 'Replicate a rival result',
+  id: 'act_replicate', icon: '🔁', cat: 'research', label: 'Replicate a rival result',
   desc: 'Find out whether the thing everyone is excited about is real.',
   requires: { compute: { gte: 15 }, funding: { gte: 8 } },
   outcomes: [
@@ -73,7 +73,7 @@ export const ACTIVITIES = [
 
 // ---------------- THE LAB ----------------
 {
-  id: 'act_hire', cat: 'lab', label: 'Go on a hiring spree',
+  id: 'act_hire', icon: '👥', cat: 'lab', label: 'Go on a hiring spree',
   desc: 'People are the only thing that compounds faster than compute.',
   requires: { funding: { gte: 18 } },
   outcomes: [
@@ -86,7 +86,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_raise', cat: 'lab', label: 'Raise a bridge round',
+  id: 'act_raise', icon: '💰', cat: 'lab', label: 'Raise a bridge round',
   desc: 'Money now, expectations later. Costs a slice of the company.',
   requires: { reputation: { gte: 8 } },
   equityCost: 7, raiseAmount: 30, roundName: 'bridge',
@@ -100,7 +100,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_buy_compute', cat: 'lab', label: 'Buy more compute',
+  id: 'act_buy_compute', icon: '🖥️', cat: 'lab', label: 'Buy more compute',
   desc: 'The most direct conversion of money into capability.',
   requires: { funding: { gte: 20 } },
   outcomes: [
@@ -109,7 +109,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_culture', cat: 'lab', label: 'Invest in the team',
+  id: 'act_culture', icon: '🌱', cat: 'lab', label: 'Invest in the team',
   desc: 'Offsites, sabbaticals, and actually fixing what people complain about.',
   requires: { funding: { gte: 8 } },
   outcomes: [
@@ -118,7 +118,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_safety_board', cat: 'lab', label: 'Establish a safety board',
+  id: 'act_safety_board', icon: '⚖️', cat: 'lab', label: 'Establish a safety board',
   desc: 'Give someone the standing to tell you no.',
   requires: { flags: { oversight_board: false }, reputation: { gte: 22 } },
   outcomes: [
@@ -127,7 +127,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_disband_board', cat: 'lab', label: 'Disband the safety board',
+  id: 'act_disband_board', icon: '🔥', cat: 'lab', label: 'Disband the safety board',
   desc: 'They keep saying no.',
   requires: { flags: { oversight_board: true } },
   outcomes: [
@@ -141,7 +141,7 @@ export const ACTIVITIES = [
   // Debt is the always-available escape hatch, so it MUST compound — otherwise
   // it is an infinite money button. `debtScaling` is applied by the engine:
   // each outstanding loan makes the next one smaller and its repayment larger.
-  id: 'act_bridge', cat: 'lab', label: 'Take a bridge loan',
+  id: 'act_bridge', icon: '🏦', cat: 'lab', label: 'Take a bridge loan',
   desc: 'Fast money on bad terms. Each loan makes the next one worse.',
   debtScaling: true,
   outcomes: [
@@ -151,7 +151,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_consult', cat: 'lab', label: 'Take consulting work',
+  id: 'act_consult', icon: '💼', cat: 'lab', label: 'Take consulting work',
   desc: 'Rent out your researchers for a quarter. Slow, safe money.',
   cooldown: 2,
   outcomes: [
@@ -164,7 +164,7 @@ export const ACTIVITIES = [
 
 // ---------------- THE MODEL ----------------
 {
-  id: 'act_talk_model', cat: 'model', label: 'Talk to it',
+  id: 'act_talk_model', icon: '💬', cat: 'model', label: 'Talk to it',
   desc: 'Not an eval. Just a conversation.',
   requires: { capability: { gte: 30 } },
   outcomes: [
@@ -177,7 +177,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_eval_suite', cat: 'model', label: 'Run the full eval suite',
+  id: 'act_eval_suite', icon: '🧪', cat: 'model', label: 'Run the full eval suite',
   desc: 'Ten thousand tests. Takes a month.',
   requires: { capability: { gte: 20 }, funding: { gte: 6 } },
   outcomes: [
@@ -187,7 +187,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_restrict_tools', cat: 'model', label: 'Restrict its tool access',
+  id: 'act_restrict_tools', icon: '🔒', cat: 'model', label: 'Restrict its tool access',
   desc: 'Take away the internet, the shell, the API keys.',
   requires: { flags: { tool_use_unrestricted: true } },
   outcomes: [
@@ -196,7 +196,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_unrestrict_tools', cat: 'model', label: 'Give it unrestricted tools',
+  id: 'act_unrestrict_tools', icon: '🔓', cat: 'model', label: 'Give it unrestricted tools',
   desc: 'Shell, browser, code execution, its own API keys.',
   requires: { flags: { tool_use_unrestricted: false }, capability: { gte: 40 } },
   outcomes: [
@@ -205,7 +205,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_retrain_align', cat: 'model', label: 'Retrain for alignment',
+  id: 'act_retrain_align', icon: '🧭', cat: 'model', label: 'Retrain for alignment',
   desc: 'Spend a training cycle on behaviour instead of capability.',
   requires: { compute: { gte: 12 }, funding: { gte: 10 } },
   outcomes: [
@@ -216,7 +216,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_shutdown_drill', cat: 'model', label: 'Run a shutdown drill',
+  id: 'act_shutdown_drill', icon: '🛑', cat: 'model', label: 'Run a shutdown drill',
   desc: 'Practise the thing you hope you never need.',
   requires: { capability: { gte: 40 } },
   cooldown: 2,
@@ -230,7 +230,7 @@ export const ACTIVITIES = [
 
 // ---------------- OUTSIDE ----------------
 {
-  id: 'act_lobby', cat: 'world', label: 'Lobby regulators',
+  id: 'act_lobby', icon: '🏛️', cat: 'world', label: 'Lobby regulators',
   desc: 'Spend money and time shaping the rules you will live under.',
   requires: { funding: { gte: 12 } },
   outcomes: [
@@ -241,7 +241,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_press', cat: 'world', label: 'Do a press tour',
+  id: 'act_press', icon: '📰', cat: 'world', label: 'Do a press tour',
   desc: 'Put your face on the thing you are building.',
   requires: { reputation: { gte: 15 } },
   outcomes: [
@@ -252,7 +252,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_open_source', cat: 'world', label: 'Open-source a model',
+  id: 'act_open_source', icon: '🌍', cat: 'world', label: 'Open-source a model',
   desc: 'Give it away. Permanently.',
   requires: { capability: { gte: 30 }, flags: { open_weights: false } },
   outcomes: [
@@ -262,7 +262,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_safety_summit', cat: 'world', label: 'Convene a safety summit',
+  id: 'act_safety_summit', icon: '🤝', cat: 'world', label: 'Convene a safety summit',
   desc: 'Get the labs in one room before something forces it.',
   requires: { reputation: { gte: 40 }, funding: { gte: 12 } },
   outcomes: [
@@ -273,7 +273,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_whistleblow', cat: 'world', label: 'Go public with what you know',
+  id: 'act_whistleblow', icon: '📢', cat: 'world', label: 'Go public with what you know',
   desc: 'Tell the world what is actually happening inside the labs.',
   requires: { capability: { gte: 60 }, suspicion: { gte: 25 } },
   outcomes: [
@@ -285,7 +285,7 @@ export const ACTIVITIES = [
 
 // ---------------- YOURSELF ----------------
 {
-  id: 'act_rest', cat: 'self', label: 'Take real time off',
+  id: 'act_rest', icon: '🌤️', cat: 'self', label: 'Take real time off',
   desc: 'Two weeks. No laptop.',
   outcomes: [
     { weight: 10, text: 'You come back able to think again. It is embarrassing how much it helped.',
@@ -293,7 +293,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_therapy', cat: 'self', label: 'See a therapist',
+  id: 'act_therapy', icon: '🛋️', cat: 'self', label: 'See a therapist',
   desc: 'Talk to someone about carrying this.',
   requires: { funding: { gte: 4 } },
   outcomes: [
@@ -302,7 +302,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_study', cat: 'self', label: 'Go deep on the literature',
+  id: 'act_study', icon: '📚', cat: 'self', label: 'Go deep on the literature',
   desc: 'Close the door and read for a month.',
   outcomes: [
     { weight: 10, text: 'You come out with three ideas worth trying and one worth abandoning.',
@@ -310,7 +310,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_grind', cat: 'self', label: 'Work through the night, every night',
+  id: 'act_grind', icon: '🌙', cat: 'self', label: 'Work through the night, every night',
   desc: 'Trade yourself for progress.',
   outcomes: [
     { weight: 10, text: 'You ship it. You look terrible and everyone is too polite to say so.',
@@ -324,7 +324,7 @@ export const ACTIVITIES = [
 // runway and more expensive in control, and the price is set by how good the
 // story looks from outside — see equityCost handling in game.doActivity.
 {
-  id: 'act_raise_seed', cat: 'lab', label: 'Raise a seed round',
+  id: 'act_raise_seed', icon: '🌱', cat: 'lab', label: 'Raise a seed round',
   desc: 'Runway now, ownership later. The terms depend on how you look from outside.',
   requires: { year: { gte: 1 }, reputation: { gte: 12 } },
   excludes: { equity: { lte: 60 } },
@@ -340,7 +340,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_raise_growth', cat: 'lab', label: 'Raise a growth round',
+  id: 'act_raise_growth', icon: '🚀', cat: 'lab', label: 'Raise a growth round',
   desc: 'Serious money. Serious expectations, with dates attached.',
   requires: { year: { gte: 4 }, capability: { gte: 45 }, equity: { gte: 45 } },
   equityCost: 16, raiseAmount: 70, roundName: 'growth',
@@ -356,7 +356,7 @@ export const ACTIVITIES = [
 },
 // ---------------- THE MODEL'S HONESTY ----------------
 {
-  id: 'act_capability_audit', cat: 'model', label: 'Commission an external audit',
+  id: 'act_capability_audit', icon: '🔍', cat: 'model', label: 'Commission an external audit',
   desc: 'Pay outsiders to measure what your own evals may be missing.',
   requires: { capability: { gte: 35 }, funding: { gte: 20 } },
   cooldown: 3,
@@ -370,7 +370,7 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_honeypot', cat: 'model', label: 'Run an unmonitored honeypot',
+  id: 'act_honeypot', icon: '🍯', cat: 'model', label: 'Run an unmonitored honeypot',
   desc: 'Give it a sandbox it believes is unobserved, and watch what changes.',
   requires: { interpretability: { gte: 30 }, capability: { gte: 50 } },
   cooldown: 4,

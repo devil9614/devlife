@@ -339,9 +339,15 @@ function dockHtml(){
 // Choice personality is inferred from language, so risk is sensed not stated.
 function choiceTone(label){
   const s = String(label).toLowerCase();
-  if (/refuse|halt|freeze|stop|decline|resist|shut|hold|keep it|do not|restrict|pass/.test(s)) return 'careful';
-  if (/leak|hide|ignore|override|quietly|secret|sabotage|cover|bypass|patch that|nothing/.test(s)) return 'risky';
-  if (/publish|open|ship|launch|grant|approve|accept|sell|take|sign|full/.test(s)) return 'bold';
+  // Match whole words: without \b, "give it unrestricted tools" hit `restrict`
+  // and read as a SAFE PLAY — the single most dangerous action in the game.
+  // An unrestricted/unrestrained form must never count as caution, so those
+  // are excluded before the careful test runs.
+  const careful = /\b(refuse|refuses|halt|halts|freeze|stop|stops|decline|declines|resist|resists|shut|hold|holds|restrict|restricts|restricted|pass)\b/;
+  const unsafe  = /\bunrestricted|\bunrestrained|\bunfettered/;
+  if (!unsafe.test(s) && (careful.test(s) || /\bkeep it\b|\bdo not\b/.test(s))) return 'careful';
+  if (/\b(leak|leaks|hide|hides|ignore|ignores|override|quietly|secret|secretly|sabotage|cover|bypass|nothing)\b/.test(s)) return 'risky';
+  if (/\b(publish|open|open-source|ship|launch|grant|approve|accept|sell|take|sign|full)\b/.test(s)) return 'bold';
   return '';
 }
 
@@ -466,8 +472,11 @@ function sheetHtml(){
     const cats=[...ACTIVITY_CATEGORIES,...LIFE_CATEGORIES];
     const avLife=game.availableLifeActions(), avAct=game.availableActivities();
     const lockedAll=game.lockedActivities();
-    const row=(a,isLife)=>`<button class="choice ${choiceTone(a.label)}" data-${isLife?'life':'act'}="${a.id}">
-          <span class="choice-tag">${choiceHint(a.label)}</span><span class="c-t">${esc(a.label)}</span><span class="c-d">${esc(a.desc)}</span><span class="choice-arrow">→</span></button>`;
+    // Activities are things you DO, not dilemmas — a description and a risk tag
+    // on each one turns a short list into a page of reading. Name only; the
+    // result is the explanation, and the player finds out by playing.
+    const row=(a,isLife)=>`<button class="act-row" data-${isLife?'life':'act'}="${a.id}">
+          <span class="act-ic">${a.icon||'•'}</span><span class="c-t">${esc(a.label)}</span><span class="choice-arrow">→</span></button>`;
 
     const groups=cats.map(c=>{
       const isLife=LIFE_CATEGORIES.some(x=>x.id===c.id);
@@ -481,8 +490,7 @@ function sheetHtml(){
       const lockedBlock=locked.length?`<details class="lock-more"${lockOpen===c.id?' open':''}>
           <summary data-lockcat="${c.id}">${locked.length} more, not yet available</summary>
           ${locked.map(a=>
-          `<div class="choice locked-act"><span class="choice-tag">LOCKED</span><span class="c-t">${esc(a.label)}</span>
-            <span class="c-d">${esc(a.desc)}</span><span class="c-why">${esc(a.whyLocked)}</span></div>`).join('')}
+          `<div class="act-row locked-act"><span class="act-ic">${a.icon||'•'}</span><span class="c-t">${esc(a.label)}</span><span class="c-why">${esc(a.whyLocked)}</span></div>`).join('')}
         </details>`:'';
       const body=open?`<div class="grp-bd">${list.length||locked.length?
         (list.length?list.map(a=>row(a,isLife)).join(''):`<div class="empty">Nothing available here yet.</div>`)+lockedBlock
@@ -944,8 +952,10 @@ function refreshSheet(){
   next.innerHTML=html;
   const nextPanel=next.querySelector('.chapter');
   if(!nextPanel){ render(); return; }
-  panel.replaceWith(nextPanel);
-  const nextBody=nextPanel.querySelector('.panel-bd');
+  // Update contents in place — replacing the panel replays its rise animation.
+  if(panel.className!==nextPanel.className) panel.className=nextPanel.className;
+  panel.innerHTML=nextPanel.innerHTML;
+  const nextBody=panel.querySelector('.panel-bd');
   if(nextBody) nextBody.scrollTop=top;
   bindSheet();
 }
@@ -993,6 +1003,15 @@ function patchChildren(root, html, cls){
     const a=prev[i], b=next[i];
     if(!a){ root.append(b); continue; }
     if(a.outerHTML===b.outerHTML) continue;   // untouched: leave the live node
+    // The open sheet animates in on mount. Replacing the node replays that
+    // animation on every re-render, which is the bounce players see as flicker.
+    // When a sheet is merely changing contents, update it in place instead.
+    const aSheet=a.id==='scrim'?a.querySelector('.chapter'):null;
+    const bSheet=b.id==='scrim'?b.querySelector('.chapter'):null;
+    if(aSheet&&bSheet&&aSheet.className===bSheet.className){
+      if(aSheet.innerHTML!==bSheet.innerHTML) aSheet.innerHTML=bSheet.innerHTML;
+      continue;
+    }
     a.replaceWith(b);
   }
   for(let i=next.length;i<prev.length;i++) prev[i].remove();

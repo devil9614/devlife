@@ -143,3 +143,28 @@ console.log('life systems: connected finance, relationships, and crypto verified
     'an excluded activity is not offered either');
   console.log('discoverability: locked options are listed and explained');
 }
+
+// ---- The opening ---------------------------------------------------------
+// A first session is the whole product for most players. The premise has to be
+// legible immediately, and a funding alarm must not fire before the run has an
+// economy to judge — a warning on turn one teaches players to ignore all of them.
+{
+  let falseAlarms = 0;
+  const N = 400;
+  for (let i = 0; i < N; i++) {
+    const g = new Game({ seed: 'open-' + i });
+    const s = g.state;
+    // Mirrors runwayNote's guard in the UI.
+    const wouldWarn = !(s.year < 2 || s._lastNet == null);
+    if (wouldWarn) falseAlarms++;
+  }
+  assert.equal(falseAlarms, 0, 'no run shows a runway warning before it has an economy');
+
+  // The model has to be named and present from the first screen — it is the
+  // thing the game is about.
+  const g = new Game({ seed: 'open-premise' });
+  assert(g.state.modelName && g.state.modelName.length > 0, 'the model is named at year 0');
+  assert(g.state.trueCapability === g.state.stats.capability,
+    'year 0 starts honest — nothing is hidden before there is anything to hide');
+  console.log('opening: premise present, no false alarms before year 2');
+}

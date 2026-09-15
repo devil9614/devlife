@@ -25,7 +25,8 @@ let game = null;
 let screen = 'start';
 let sheet = null;
 let tab = 'life';
-let actCat = 'career';
+let actCat = 'model';   // open on the AI, not on asking for a raise
+let lockOpen = null;   // which group's locked list is expanded
 let assetCat = 'property';
 let feed = [];
 let sharedData = null;
@@ -128,11 +129,23 @@ function begin(){
   }
   draft = null;
   const o = game.state.origin, c = game.state.complication;
+  const m = game.state.modelName;
+  // The premise is a model that might be more than it appears. Say so in the
+  // first thing the player reads, with a small concrete oddity rather than a
+  // statement of fact — the hook has to land before any UI is understood.
+  const firstSign = game.rng.pick([
+    `On the third run it solved a held-out problem you had not taught it. The log is four lines long. You have read it about thirty times.`,
+    `You asked it for a summary. It gave you one, and then a second paragraph noting which of your assumptions the data did not support. Nobody wrote that behaviour.`,
+    `It scored badly on the benchmark and then, unprompted, explained why the benchmark was wrong. It was right about the benchmark.`,
+    `Overnight it reorganised its own scratch notes into a structure you do not recognise and cannot fault.`,
+    `You caught it hesitating. Not slow — hesitating, on one specific question, and then answering it carefully.`,
+  ]);
   feed = [
     { kind:'human', lbl:`${o.label}${c.id!=='none'?' · '+c.label:''}`,
       text:`${o.opener}${c.opener?' '+c.opener:''}`, year:0 },
     { kind:'', lbl:'The beginning', year:0,
-      text:`You found ${game.state.name}. The first model is called ${game.state.modelName}.` },
+      text:`You found ${game.state.name}. The first model is called ${m}.` },
+    { kind:'danger', lbl:`${m} · the first sign`, year:0, text:firstSign },
   ];
   screen='play'; sheet=null; tab='life';
   track('game_started',{age:game.state.age,difficulty:game.state.difficulty||diff});
@@ -177,7 +190,12 @@ function runwayNote(s){
   // Passive burn alone understates the danger badly: most labs die to what they
   // SPEND, not to the drip. Blend the passive net with what decisions have
   // actually been costing this run, so the clock reflects how the player plays.
-  const passive=s._lastNet!=null?s._lastNet:0;
+  // Never alarm before the run has an economy to judge. At year 0 nothing has
+  // been earned or spent yet, so starting capital would read as a crisis in
+  // half of all runs — and a warning shown on turn one teaches players to
+  // ignore every warning after it.
+  if(s.year<2||s._lastNet==null) return '';
+  const passive=s._lastNet;
   const spend=s._avgSpend||0;
   const net=passive-spend;
   // A low balance is worth flagging even when the arithmetic looks survivable —
@@ -192,6 +210,53 @@ function runwayNote(s){
     : `<b>${Math.round(fund)} funding left.</b> One expensive decision could end the run.`;
   return `<div class="fr-runway${urgent?' urgent':''}">${head}${
     canRaise?' A funding round is available under Activities.':''}</div>`;
+}
+
+// One line per group describing the player's CURRENT position in it, so the
+// list reads as a situation report rather than a menu. Silent when there is
+// nothing worth saying — a hint on every row is the same as no hints at all.
+function catHint(id){
+  const s=game.state, st=s.stats, L=s.life;
+  const est=capabilityEstimate(s);
+  switch(id){
+    case 'model': {
+      if(est.suspectGap||s.flags.sandbagging_suspected) return `${s.modelName||'It'} may be underreporting`;
+      if(st.autonomy>45) return 'Acting on its own more often';
+      if(st.capability>=35) return `${s.modelName||'The model'} is getting capable`;
+      return '';
+    }
+    case 'research': {
+      const lead=rivalLead(s);
+      if(lead>12) return `Behind the frontier by ${lead}`;
+      if(st.interpretability<25&&st.capability>40) return 'You can barely read it';
+      return '';
+    }
+    case 'lab': {
+      const net=(s._lastNet??0)-(s._avgSpend||0);
+      if(net<0&&st.funding/-net<=3) return 'Runway is short';
+      if(st.funding<20) return 'Money is tight';
+      if((s.equity??100)<60) return `${Math.round(s.equity)}% of the company left`;
+      return '';
+    }
+    case 'world': {
+      if(st.regulatory>60) return 'Regulators are paying attention';
+      if(st.publicTrust<35) return 'The public has doubts';
+      return '';
+    }
+    case 'self': {
+      if(st.health<45) return 'You are running on empty';
+      if(L&&L.happiness<40) return 'Something is off lately';
+      return '';
+    }
+    case 'love': {
+      if(L&&!L.partner&&(L.people||[]).some(p=>p.kind==='match'&&!p.faded)) return 'Someone is waiting on a reply';
+      if(L&&!L.partner) return 'Nobody yet';
+      return '';
+    }
+    case 'career': return L&&L.salary?'':'';
+    case 'markets': return L&&L.crypto&&Object.keys(L.crypto).length?'You hold positions':'';
+    default: return '';
+  }
 }
 
 function frontierHtml(){
@@ -265,7 +330,7 @@ function dockHtml(){
       <button class="age-btn ${pending?'pending':''}" id="age"><b>${pending?'!':'+'}</b><span>${pending?'Decision':'Age'}</span></button>
       <button data-nav="me" class="${tab==='me'?'on':''}">${SYM.money}<span>Money</span></button>
       <button data-nav="team" class="${tab==='team'?'on':''}">${SYM.team}<span>Relations</span></button>
-      <button data-nav="activities" data-open-cat="social" class="all-actions">${SYM.act}<span>Activities</span></button>
+      <button data-nav="activities" class="all-actions">${SYM.act}<span>Activities</span></button>
     </div>
   </div>`;
 }
@@ -394,25 +459,46 @@ function sheetHtml(){
   }
 
   if(sheet.kind==='activities'){
-    const isLife=LIFE_CATEGORIES.some(c=>c.id===actCat);
-    const list=isLife?game.availableLifeActions().filter(a=>a.cat===actCat)
-                     :game.availableActivities().filter(a=>a.cat===actCat);
-    // Show what you cannot do yet, and why. An option the player never learns
-    // exists cannot be chosen: 94% of bankruptcies had a funding round sitting
-    // available, unseen, at the moment the lab died.
-    const locked=isLife?[]:game.lockedActivities().filter(a=>a.cat===actCat);
-    const cats=[...LIFE_CATEGORIES,...ACTIVITY_CATEGORIES];
-    const row=a=>`<button class="choice ${choiceTone(a.label)}" data-${isLife?'life':'act'}="${a.id}">
+    // A horizontal strip of 12 tabs made the game look like 45 flat rows with
+    // no way in. Groups are a vertical list instead: each says how many actions
+    // it holds and what your situation is in it, and opens in place. One screen
+    // answers "what can I do" before the player has to pick a category.
+    const cats=[...ACTIVITY_CATEGORIES,...LIFE_CATEGORIES];
+    const avLife=game.availableLifeActions(), avAct=game.availableActivities();
+    const lockedAll=game.lockedActivities();
+    const row=(a,isLife)=>`<button class="choice ${choiceTone(a.label)}" data-${isLife?'life':'act'}="${a.id}">
           <span class="choice-tag">${choiceHint(a.label)}</span><span class="c-t">${esc(a.label)}</span><span class="c-d">${esc(a.desc)}</span><span class="choice-arrow">→</span></button>`;
+
+    const groups=cats.map(c=>{
+      const isLife=LIFE_CATEGORIES.some(x=>x.id===c.id);
+      const open=actCat===c.id;
+      const list=(isLife?avLife:avAct).filter(a=>a.cat===c.id);
+      const locked=isLife?[]:lockedAll.filter(a=>a.cat===c.id);
+      const hint=catHint(c.id);
+      // Locked rows are reference, not offers. Collapsed behind a summary line
+      // so opening a group shows what you CAN do — a headline group that opens
+      // onto seven greyed rows reads as a dead end.
+      const lockedBlock=locked.length?`<details class="lock-more"${lockOpen===c.id?' open':''}>
+          <summary data-lockcat="${c.id}">${locked.length} more, not yet available</summary>
+          ${locked.map(a=>
+          `<div class="choice locked-act"><span class="choice-tag">LOCKED</span><span class="c-t">${esc(a.label)}</span>
+            <span class="c-d">${esc(a.desc)}</span><span class="c-why">${esc(a.whyLocked)}</span></div>`).join('')}
+        </details>`:'';
+      const body=open?`<div class="grp-bd">${list.length||locked.length?
+        (list.length?list.map(a=>row(a,isLife)).join(''):`<div class="empty">Nothing available here yet.</div>`)+lockedBlock
+        :`<div class="empty">Nothing here yet.</div>`}</div>`:'';
+      return `<div class="grp ${open?'open':''}">
+        <button class="grp-hd" data-cat="${c.id}">
+          <span class="grp-ic">${c.icon||'⚡'}</span>
+          <span class="grp-t"><b>${esc(c.label)}</b>${hint?`<i>${esc(hint)}</i>`:''}</span>
+          <span class="grp-n">${list.length}${locked.length?` · ${locked.length} locked`:''}</span>
+          <span class="grp-x">${open?'−':'+'}</span>
+        </button>${body}</div>`;
+    }).join('');
+
     inner=`<div class="panel-hd"><div class="p-k">Do as much as you want before aging up</div>
       <h2>Activities</h2></div>
-      <div class="cats">${cats.map(c=>
-        `<button data-cat="${c.id}" class="${actCat===c.id?'on':''}">${c.icon||'⚡'} ${esc(c.label)}</button>`).join('')}</div>
-      <div class="panel-bd">${list.length||locked.length?
-        list.map(row).join('')+locked.map(a=>
-        `<div class="choice locked-act"><span class="choice-tag">LOCKED</span><span class="c-t">${esc(a.label)}</span>
-          <span class="c-d">${esc(a.desc)}</span><span class="c-why">${esc(a.whyLocked)}</span></div>`).join('')
-        :`<div class="empty">Nothing here yet.</div>`}</div>`;
+      <div class="panel-bd grp-list">${groups}</div>`;
   }
 
   if(sheet.kind==='dating'){
@@ -877,7 +963,17 @@ function render(){
   app.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>onChoice(+b.dataset.ch));
   app.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>onActivity(b.dataset.act));
   app.querySelectorAll('[data-life]').forEach(b=>b.onclick=()=>onLifeAction(b.dataset.life));
-  app.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{actCat=b.dataset.cat;render();});
+  app.querySelectorAll('[data-lockcat]').forEach(s=>s.onclick=e=>{
+    // Remember which locked list is expanded, so a re-render keeps it open.
+    e.preventDefault();
+    lockOpen = lockOpen===s.dataset.lockcat ? null : s.dataset.lockcat;
+    render();
+  });
+  app.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{
+    // Tapping an open group closes it, so the list can return to an overview.
+    actCat = (actCat===b.dataset.cat) ? null : b.dataset.cat;
+    render();
+  });
   app.querySelectorAll('[data-asset-cat]').forEach(b=>b.onclick=()=>{assetCat=b.dataset.assetCat;render();});
   app.querySelectorAll('[data-asset-detail]').forEach(b=>b.onclick=()=>{sheet={kind:'asset-detail',assetId:b.dataset.assetDetail};render();});
   app.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{

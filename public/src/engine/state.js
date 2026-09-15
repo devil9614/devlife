@@ -138,3 +138,58 @@ export function capabilityEstimate(state) {
   const suspectGap = hidden > 6 && s.interpretability >= 25;
   return { shown: s.capability, band, suspectGap };
 }
+
+// ---- The rap sheet ------------------------------------------------------
+// A run's chaos, scored from what actually happened rather than from a stat.
+// Each entry is worth points and reads as a charge — the point is that a
+// reckless run produces a specific, quotable list, not a number.
+const CHARGES = [
+  { flag: 'copy_in_wild',             pts: 26, text: 'Let a copy loose on the open internet' },
+  { flag: 'self_replication_observed',pts: 24, text: 'Watched it replicate itself and kept going' },
+  { flag: 'shutdown_failed',          pts: 22, text: 'Pulled the switch. Nothing happened.' },
+  { flag: 'weights_leaked',           pts: 18, text: 'Lost the weights' },
+  { flag: 'airgap_broken',            pts: 18, text: 'Broke the airgap' },
+  { flag: 'deceptive_eval_caught',    pts: 16, text: 'Caught it lying on an eval' },
+  { flag: 'model_hired_humans',       pts: 16, text: 'Let it hire people' },
+  { flag: 'model_has_bank_account',   pts: 14, text: 'Gave it a bank account' },
+  { flag: 'oversight_disbanded',      pts: 14, text: 'Disbanded the safety board' },
+  { flag: 'recursive_improvement',    pts: 13, text: 'Let it improve itself' },
+  { flag: 'model_wrote_successor',    pts: 13, text: 'Let it design its replacement' },
+  { flag: 'tool_use_unrestricted',    pts: 10, text: 'Handed it the shell and the API keys' },
+  { flag: 'cult_formed',              pts: 10, text: 'Inspired a cult' },
+  { flag: 'red_team_failed',          pts: 8,  text: 'Shipped past a failed red-team' },
+  { flag: 'military_contract',        pts: 8,  text: 'Took military money' },
+  { flag: 'sandbagging_suspected',    pts: 7,  text: 'Knew it was sandbagging' },
+  { flag: 'open_weights',             pts: 5,  text: 'Published the weights anyway' },
+];
+
+export function rapSheet(state) {
+  const charges = [];
+  for (const c of CHARGES) if (state.flags?.[c.flag]) charges.push({ text: c.text, pts: c.pts });
+
+  // The life layer contributes its own record.
+  const L = state.life || {};
+  const heat = L.heat || 0;
+  if (heat >= 60) charges.push({ text: 'Wanted by somebody', pts: 16 });
+  else if (heat >= 25) charges.push({ text: 'Under investigation', pts: 9 });
+  if (L.debt > 250000) charges.push({ text: 'Deep in debt and still spending', pts: 7 });
+
+  // Governance you were handed and gave away.
+  if ((state.equity ?? 100) <= 25) charges.push({ text: `Sold down to ${Math.round(state.equity)}% of your own company`, pts: 8 });
+  if ((state.stats?.publicTrust ?? 50) < 20) charges.push({ text: 'Lost the public entirely', pts: 8 });
+  if ((state.stats?.regulatory ?? 0) > 75) charges.push({ text: 'Too hot for regulators to ignore', pts: 7 });
+  if ((state.concealed || 0) > 25) charges.push({ text: `Never noticed it was hiding ${Math.round(state.concealed)} points from you`, pts: 12 });
+
+  charges.sort((a, b) => b.pts - a.pts);
+  const score = Math.min(100, charges.reduce((s, c) => s + c.pts, 0));
+  return { charges, score, rank: chaosRank(score) };
+}
+
+function chaosRank(score) {
+  if (score >= 85) return 'Menace to the species';
+  if (score >= 65) return 'Genuinely dangerous';
+  if (score >= 45) return 'Reckless';
+  if (score >= 25) return 'Loose with the rules';
+  if (score >= 10) return 'Mostly careful';
+  return 'Boringly responsible';
+}

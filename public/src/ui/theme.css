@@ -494,3 +494,41 @@ button { border: 0; color: inherit; cursor: pointer; }
 .sc-fig span { display: block; margin-top: 4px; overflow: hidden; color: rgba(255,255,255,.62); font-size: 8px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; text-overflow: ellipsis; }
 .sc-note { position: relative; z-index: 1; margin-top: 12px; padding: 8px 10px; border-radius: 9px; background: rgba(236,70,100,.17); color: #ffc7d3; font-size: 10.5px; line-height: 1.45; }
 .sc-foot { position: relative; z-index: 1; margin-top: 14px; color: rgba(255,255,255,.4); font-size: 9px; font-weight: 700; letter-spacing: .08em; }
+
+/* The rap sheet: what the run actually did, itemised. Reads as a charge sheet
+   rather than a scoreboard — the list is the point, the number is the punchline. */
+.rap {
+  margin-top: 13px;
+  padding: 14px 15px 12px;
+  border: 1px solid #e3e1e6;
+  border-left: 4px solid var(--muted);
+  border-radius: 12px;
+  background: #fff;
+}
+.rap.tier-low  { border-left-color: #b9b5c0; }
+.rap.tier-mid  { border-left-color: var(--orange); background: #fffaf3; }
+.rap.tier-high { border-left-color: var(--red); background: #fff7f8; }
+.rap.tier-max  { border-left-color: #b0173a; background: #fff3f5; }
+.rap-hd { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.rap-k { color: var(--muted); font-size: 8px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+.rap-score { font: 700 24px/1 var(--display); font-variant-numeric: tabular-nums; }
+.rap-score i { color: var(--muted); font: 700 11px var(--sans); font-style: normal; }
+.rap.tier-high .rap-score, .rap.tier-max .rap-score { color: var(--red); }
+.rap-rank { margin-top: 3px; font: 700 15px/1.2 var(--display); }
+.rap.tier-max .rap-rank { color: #b0173a; }
+.rap-list { margin: 11px 0 0; padding: 0; list-style: none; }
+.rap-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid #f0eff2;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.rap-list li:first-child { border-top: 0; }
+.rap-list li span { flex: 1; min-width: 0; }
+.rap-list li b { flex: none; color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.rap.tier-high .rap-list li b, .rap.tier-max .rap-list li b { color: var(--red); }
+.rap-more { margin-top: 8px; color: var(--muted); font-size: 10px; font-weight: 700; }

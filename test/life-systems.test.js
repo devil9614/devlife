@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { Game } from '../public/src/engine/game.js';
-import { syncObserved, capabilityEstimate } from '../public/src/engine/state.js';
+import { syncObserved, capabilityEstimate, rapSheet } from '../public/src/engine/state.js';
 import { checkEndings } from '../public/src/engine/engine.js';
 import { ORIGINS, OPENING_BEATS } from '../public/src/data/origins.js';
 import { ACTIVITIES } from '../public/src/data/activities.js';
@@ -239,4 +239,34 @@ console.log('life systems: connected finance, relationships, and crypto verified
   assert(runsWithCelebration / N > 0.5,
     `most runs see a celebration (got ${(runsWithCelebration / N * 100).toFixed(0)}%)`);
   console.log('celebrations: ' + (runsWithCelebration / N * 100).toFixed(0) + '% of runs, themes ' + [...used].join('/'));
+}
+
+// ---- The rap sheet -------------------------------------------------------
+// The chaos screen only works if a careful run produces NOTHING — the empty
+// sheet is the joke — and a reckless one produces specific, quotable charges.
+{
+  const mk = (flags, over = {}) => ({
+    flags: Object.fromEntries(flags.map(f => [f, true])),
+    stats: { publicTrust: 50, regulatory: 10 },
+    life: { heat: 0, debt: 0 },
+    equity: 100, concealed: 0, ...over,
+  });
+  const clean = rapSheet(mk([]));
+  assert.equal(clean.charges.length, 0, 'a clean run has no charges');
+  assert.equal(clean.score, 0, 'a clean run scores zero');
+
+  const worst = rapSheet(mk(['copy_in_wild','self_replication_observed','shutdown_failed',
+    'weights_leaked','airgap_broken','deceptive_eval_caught','model_hired_humans']));
+  assert(worst.score >= 85, 'a maximally reckless run tops the scale');
+  assert(worst.charges.length >= 6, 'it itemises what actually happened');
+  assert(worst.charges.every(c => c.text && c.pts > 0), 'every charge has text and a weight');
+
+  // Charges must be ordered worst-first, since the card shows only the top 8.
+  const pts = worst.charges.map(c => c.pts);
+  assert.deepEqual(pts, [...pts].sort((a, b) => b - a), 'charges are ranked worst first');
+
+  // Ranks must be distinct across the range, or the tiers are decorative.
+  const ranks = new Set([clean, rapSheet(mk(['open_weights','tool_use_unrestricted','red_team_failed','military_contract','cult_formed'])), worst].map(r => r.rank));
+  assert.equal(ranks.size, 3, 'different amounts of chaos produce different verdicts');
+  console.log('rap sheet: ' + worst.score + '/100 "' + worst.rank + '" from ' + worst.charges.length + ' charges');
 }

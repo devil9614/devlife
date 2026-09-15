@@ -4,7 +4,7 @@
 // the run is seen.
 
 import { Game } from '../engine/game.js';
-import { STAT_DEFS, capabilityEstimate } from '../engine/state.js';
+import { STAT_DEFS, capabilityEstimate, rapSheet } from '../engine/state.js';
 import { rivalLead } from '../engine/engine.js';
 import { ACTIVITY_CATEGORIES } from '../data/activities.js';
 import { ENDINGS } from '../data/index.js';
@@ -772,10 +772,26 @@ function summaryHtml({tone,title,text,year,decisions,moments,flags,isLive,seed,p
     <div class="sc-foot">trydevlife.vercel.app</div>
   </div>`;
 
+  // The rap sheet. A cautious run produces nothing here and that is the joke;
+  // a reckless one produces a list that is far more fun to post than a score.
+  const sheet = state ? rapSheet(state) : null;
+  const rapBlock = (sheet && sheet.charges.length) ? `<div class="rap tier-${
+      sheet.score>=85?'max':sheet.score>=65?'high':sheet.score>=45?'mid':'low'}">
+    <div class="rap-hd">
+      <span class="rap-k">What you actually did</span>
+      <span class="rap-score">${sheet.score}<i>/100</i></span>
+    </div>
+    <div class="rap-rank">${esc(sheet.rank)}</div>
+    <ul class="rap-list">${sheet.charges.slice(0,8).map(c=>
+      `<li><span>${esc(c.text)}</span><b>+${c.pts}</b></li>`).join('')}</ul>
+    ${sheet.charges.length>8?`<div class="rap-more">and ${sheet.charges.length-8} more</div>`:''}
+  </div>` : '';
+
   return `<div class="ending">
     <div class="end-plate">${state?renderWorld(state,'slice'):''}</div>
     <div class="end-body">
       ${shareCard}
+      ${rapBlock}
       <p class="end-text">${esc(text)}</p>
       <div class="end-figs">
         <div class="end-fig"><b>${year}</b><span>Years</span></div>

@@ -20,17 +20,26 @@ function resize(){
 }
 
 function spawn(count){
-  const w = window.innerWidth;
+  const w = window.innerWidth, h = window.innerHeight;
+  // Two bursts from the lower corners, like party poppers, so confetti is
+  // on-screen and moving outward from frame one instead of drifting in from
+  // above the viewport. Slow initial speed + light gravity + drag so pieces
+  // hang in the air and flutter down instead of rocketing past in a blink.
   for (let i = 0; i < count; i++){
+    const fromLeft = i % 2 === 0;
+    const originX = fromLeft ? w * 0.08 : w * 0.92;
+    const angle = (fromLeft ? -0.9 : -0.9 + Math.PI) + (Math.random() - 0.5) * 1.3;
+    const speed = 4 + Math.random() * 5;
     particles.push({
-      x: w * (0.2 + Math.random() * 0.6),
-      y: -20 - Math.random() * 80,
-      vx: (Math.random() - 0.5) * 4,
-      vy: 2 + Math.random() * 3,
-      size: 5 + Math.random() * 5,
+      x: originX,
+      y: h * 0.78,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      size: 9 + Math.random() * 8,
       color: COLORS[i % COLORS.length],
       rot: Math.random() * Math.PI,
-      vrot: (Math.random() - 0.5) * 0.3,
+      vrot: (Math.random() - 0.5) * 0.25,
+      sway: Math.random() * Math.PI * 2,
       life: 0,
     });
   }
@@ -39,21 +48,25 @@ function spawn(count){
 function tick(){
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   particles.forEach(p => {
-    p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.rot += p.vrot; p.life++;
+    p.vy += 0.09; p.vx *= 0.985;
+    p.sway += 0.12;
+    p.x += p.vx + Math.sin(p.sway) * 0.8;
+    p.y += p.vy;
+    p.rot += p.vrot; p.life++;
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(p.rot);
-    ctx.globalAlpha = Math.max(0, 1 - p.life / 120);
+    ctx.globalAlpha = p.life > 220 ? Math.max(0, 1 - (p.life - 220) / 60) : 1;
     ctx.fillStyle = p.color;
     ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
     ctx.restore();
   });
-  particles = particles.filter(p => p.y < canvas.height + 30 && p.life < 130);
+  particles = particles.filter(p => p.y < canvas.height + 30 && p.life < 280);
   if (particles.length) raf = requestAnimationFrame(tick);
   else { raf = null; ctx.clearRect(0, 0, canvas.width, canvas.height); }
 }
 
-export function celebrate(count = 90){
+export function celebrate(count = 140){
   ensureCanvas();
   spawn(count);
   if (!raf) raf = requestAnimationFrame(tick);

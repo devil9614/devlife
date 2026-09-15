@@ -503,10 +503,13 @@ function paneHtml(which){
     };
     const personal=L.people.filter(p=>!p.faded);
     const personalCard=p=>`<button class="dossier dossier-button" data-open-person="${p.id}"><div class="portrait tall"><i class="sprite" style="${spriteStyle(p,1)}"></i></div><div class="d-body"><div class="d-name">${esc(p.name)}</div><div class="d-role">${esc(RK[p.kind]||p.kind)}${p.cofounder?' · co-founder':''}</div><div class="heartline">${'♥'.repeat(Math.max(1,Math.ceil(p.closeness/20)))}<i>${'♥'.repeat(Math.max(0,5-Math.ceil(p.closeness/20)))}</i></div></div><span class="dossier-arrow">→</span></button>`;
+    const single=!L.people.some(p=>p.kind==='partner'||p.kind==='spouse');
+    const datingCta=single?`<button class="choice bold" data-life="date_apps"><span class="choice-tag">SIGNAL</span><span class="c-t">Open dating</span><span class="c-d">Browse age-compatible matches near you.</span><span class="choice-arrow">→</span></button>`:'';
     return `<div class="panel-hd"><div class="p-k">${personal.length} personal · ${roster.length} at work</div>
       <h2>Relationships</h2></div>
       <div class="panel-bd">
-        ${personal.length?personal.map(personalCard).join(''):`<div class="empty">Nobody close yet. Try going out.</div>`}
+        ${datingCta}
+        ${personal.length?personal.map(personalCard).join(''):`<div class="empty">Nobody close yet. Try dating.</div>`}
         ${secRule('Coworkers')}
         ${roster.length?roster.map(card).join(''):`<div class="empty">Nobody works here yet.</div>`}
         ${gone.length?secRule('Departed')+gone.map(p=>`<div class="dossier gone">

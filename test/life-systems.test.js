@@ -114,3 +114,32 @@ console.log('life systems: connected finance, relationships, and crypto verified
   assert(e && e.id === 'quiet_coup', 'a lab deceived to the frontier gets the coup ending, not safety');
   console.log('deception: concealment tracks interpretability, endings resolve on truth');
 }
+
+// ---- Discoverability ----------------------------------------------------
+// An option the player never learns exists cannot be chosen. 94% of
+// bankruptcies happened with a funding round sitting available and unseen, so
+// the locked list and its reasons are load-bearing, not decoration.
+{
+  const g = new Game({ seed: 'discoverability' });
+  for (let i = 0; i < 6; i++) { if (g.current) g.choose(0); else g.nextYear(); }
+
+  const locked = g.lockedActivities();
+  assert(locked.length > 0, 'some activities should be locked early on');
+  assert(locked.every(a => a.whyLocked && a.whyLocked.length > 0),
+    'every locked activity states a reason');
+  assert(locked.every(a => !/^Not yet available$/.test(a.whyLocked)),
+    'no locked activity falls back to a vague reason');
+
+  // Available and locked must be disjoint, or the UI lists the same row twice.
+  const availIds = new Set(g.availableActivities().map(a => a.id));
+  assert(locked.every(a => !availIds.has(a.id)),
+    'an activity is never both available and locked');
+
+  // Permanently-excluded activities are gone, not pending.
+  g.state.equity = 40;                       // past the seed round's excludes gate
+  assert(!g.lockedActivities().some(a => a.id === 'act_raise_seed'),
+    'an excluded activity is not advertised as merely locked');
+  assert(!g.availableActivities().some(a => a.id === 'act_raise_seed'),
+    'an excluded activity is not offered either');
+  console.log('discoverability: locked options are listed and explained');
+}

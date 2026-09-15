@@ -86,9 +86,10 @@ export const ACTIVITIES = [
   ],
 },
 {
-  id: 'act_raise', cat: 'lab', label: 'Raise a funding round',
-  desc: 'Money now, expectations later.',
+  id: 'act_raise', cat: 'lab', label: 'Raise a bridge round',
+  desc: 'Money now, expectations later. Costs a slice of the company.',
   requires: { reputation: { gte: 8 } },
+  equityCost: 7, raiseAmount: 30, roundName: 'bridge',
   cooldown: 2,
   outcomes: [
     { weight: 10, bias: { reputation: 1.0 }, text: 'The round closes. The valuation is a number you would not have believed three years ago.',

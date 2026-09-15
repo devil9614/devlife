@@ -169,6 +169,31 @@ function pulseHtml(){
 // Capability is the one number the player cannot simply read, so it is shown
 // as a measurement with a confidence band rather than a fact. The band is what
 // interpretability actually buys, made visible.
+// Runway, stated in years, while there is still time to act on it. Insolvency
+// was the most common ending and it arrived without a countdown; a player who
+// can see the clock can choose to raise, cut, or gamble deliberately.
+function runwayNote(s){
+  const fund=s.stats.funding;
+  // Passive burn alone understates the danger badly: most labs die to what they
+  // SPEND, not to the drip. Blend the passive net with what decisions have
+  // actually been costing this run, so the clock reflects how the player plays.
+  const passive=s._lastNet!=null?s._lastNet:0;
+  const spend=s._avgSpend||0;
+  const net=passive-spend;
+  // A low balance is worth flagging even when the arithmetic looks survivable —
+  // one ordinary decision can still take all of it.
+  if(net>=0&&fund>26) return '';
+  const years=net<0?Math.max(0,Math.round((fund/-net)*10)/10):null;
+  if(years!=null&&years>6) return '';
+  const canRaise=game.availableActivities().some(a=>/raise/.test(a.id));
+  const urgent=fund<=18||(years!=null&&years<=2.5);
+  const head=years!=null
+    ? `<b>${years} year${years===1?'':'s'} of runway</b> at your current burn and spending.`
+    : `<b>${Math.round(fund)} funding left.</b> One expensive decision could end the run.`;
+  return `<div class="fr-runway${urgent?' urgent':''}">${head}${
+    canRaise?' A funding round is available under Activities.':''}</div>`;
+}
+
 function frontierHtml(){
   const s=game.state, st=s.stats;
   const est=capabilityEstimate(s);
@@ -193,6 +218,7 @@ function frontierHtml(){
       <div class="fr-v">${capLine}</div>
     </div>
     ${suspect?`<div class="fr-warn">Your evals and your compute disagree. ${esc(s.modelName||'The model')} may be scoring below what it can do.</div>`:''}
+    ${runwayNote(s)}
     <div class="fr-sub">The frontier</div>
     ${rivalRows}
     <div class="fr-row fr-foot">
@@ -371,14 +397,21 @@ function sheetHtml(){
     const isLife=LIFE_CATEGORIES.some(c=>c.id===actCat);
     const list=isLife?game.availableLifeActions().filter(a=>a.cat===actCat)
                      :game.availableActivities().filter(a=>a.cat===actCat);
+    // Show what you cannot do yet, and why. An option the player never learns
+    // exists cannot be chosen: 94% of bankruptcies had a funding round sitting
+    // available, unseen, at the moment the lab died.
+    const locked=isLife?[]:game.lockedActivities().filter(a=>a.cat===actCat);
     const cats=[...LIFE_CATEGORIES,...ACTIVITY_CATEGORIES];
+    const row=a=>`<button class="choice ${choiceTone(a.label)}" data-${isLife?'life':'act'}="${a.id}">
+          <span class="choice-tag">${choiceHint(a.label)}</span><span class="c-t">${esc(a.label)}</span><span class="c-d">${esc(a.desc)}</span><span class="choice-arrow">→</span></button>`;
     inner=`<div class="panel-hd"><div class="p-k">Do as much as you want before aging up</div>
       <h2>Activities</h2></div>
       <div class="cats">${cats.map(c=>
         `<button data-cat="${c.id}" class="${actCat===c.id?'on':''}">${c.icon||'⚡'} ${esc(c.label)}</button>`).join('')}</div>
-      <div class="panel-bd">${list.length?list.map(a=>
-        `<button class="choice ${choiceTone(a.label)}" data-${isLife?'life':'act'}="${a.id}">
-          <span class="choice-tag">${choiceHint(a.label)}</span><span class="c-t">${esc(a.label)}</span><span class="c-d">${esc(a.desc)}</span><span class="choice-arrow">→</span></button>`).join('')
+      <div class="panel-bd">${list.length||locked.length?
+        list.map(row).join('')+locked.map(a=>
+        `<div class="choice locked-act"><span class="choice-tag">LOCKED</span><span class="c-t">${esc(a.label)}</span>
+          <span class="c-d">${esc(a.desc)}</span><span class="c-why">${esc(a.whyLocked)}</span></div>`).join('')
         :`<div class="empty">Nothing here yet.</div>`}</div>`;
   }
 

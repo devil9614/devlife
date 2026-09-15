@@ -132,6 +132,13 @@ export function resolveChoice(state, ev, choice, rng) {
     state._spentThisYear = spentThisYear + (-effects.funding);
   }
 
+  // Track what decisions actually cost, so the UI can show a runway that
+  // reflects how this player plays rather than passive burn alone.
+  if (typeof effects.funding === 'number' && effects.funding < 0) {
+    const prev = state._avgSpend || 0;
+    state._avgSpend = Math.round((prev * 0.7 + -effects.funding * 0.3) * 10) / 10;
+  }
+
   const deltas = applyEffects(state, { ...effects, flags: out.flags || {} });
   state.seen[ev.id] = (state.seen[ev.id] || 0) + 1;
 

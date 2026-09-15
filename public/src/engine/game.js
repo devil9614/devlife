@@ -276,8 +276,77 @@ export class Game {
     return ACTIVITIES.filter(a => {
       const cd = this.state.cooldowns[a.id];
       if (cd != null && this.state.year < cd) return false;
+      if (a.excludes && matches(this.state, a.excludes)) return false;
       return matches(this.state, a.requires);
     });
+  }
+
+  /**
+   * Activities the player cannot do yet, with the reason in plain language.
+   * Surfaced in the UI so the option space is legible before it is reachable —
+   * a lab should never go bankrupt beside a funding round it never knew about.
+   * Permanently-excluded activities are omitted: they are gone, not pending.
+   */
+  lockedActivities() {
+    const s = this.state;
+    return ACTIVITIES.filter(a => {
+      if (a.excludes && matches(s, a.excludes)) return false;   // gone for good
+      if (matches(s, a.requires)) {
+        const cd = s.cooldowns[a.id];
+        return cd != null && s.year < cd;                        // just on cooldown
+      }
+      return true;
+    }).map(a => ({ ...a, whyLocked: this.lockReason(a) }));
+  }
+
+  /** Human-readable single reason an activity is unavailable. */
+  lockReason(a) {
+    const s = this.state, cd = s.cooldowns[a.id];
+    if (cd != null && s.year < cd) {
+      const y = cd - s.year;
+      return `Available in ${y} year${y === 1 ? '' : 's'}`;
+    }
+    const LABELS = {
+      capability: 'capability', funding: 'funding', reputation: 'reputation',
+      compute: 'compute', talent: 'talent', interpretability: 'interpretability',
+      alignment: 'alignment', containment: 'containment', morale: 'morale',
+      health: 'health', publicTrust: 'public trust', equity: 'equity',
+    };
+    const req = a.requires || {};
+    // Flag gates are prerequisites in the story, not thresholds — name the
+    // thing that has to have happened.
+    const FLAG_WHY = {
+      oversight_board: 'Requires a safety board',
+      public_deployment: 'Requires a deployed product',
+      rlhf_deployed: 'Requires an RLHF pipeline',
+      interpretability_lab: 'Requires an interpretability team',
+      scaling_law_found: 'Requires finding the scaling law',
+      tool_use_unrestricted: 'Requires unrestricted tool access',
+      govt_contract: 'Requires a government contract',
+      nationalized: 'Requires nationalisation',
+      agi_declared: 'Not until the threshold is declared',
+    };
+    for (const [f, want] of Object.entries(req.flags || {})) {
+      if (Boolean(s.flags[f]) !== Boolean(want)) {
+        if (want && FLAG_WHY[f]) return FLAG_WHY[f];
+        if (!want) return 'No longer possible';
+        return 'Requires something that has not happened yet';
+      }
+    }
+    for (const [k, c] of Object.entries(req)) {
+      if (k === 'flags' || !c || typeof c !== 'object') continue;
+      const have = k === 'year' ? s.year
+        : k === 'age' ? s.age
+        : k === 'equity' ? (s.equity ?? 100)
+        : s.stats[k];
+      if (have == null) continue;
+      if ('gte' in c && have < c.gte) {
+        if (k === 'year') return `Not until year ${c.gte}`;
+        return `Needs ${LABELS[k] || k} ${c.gte} — you have ${Math.round(have)}`;
+      }
+      if ('lte' in c && have > c.lte) return `Needs ${LABELS[k] || k} at or below ${c.lte}`;
+    }
+    return 'Not yet available';
   }
 
   activityLocked(a) {

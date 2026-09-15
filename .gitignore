@@ -1,3 +1,6 @@
 node_modules/
 .DS_Store
 *.log
+
+# Local Claude Code session state
+.claude/scheduled_tasks.lock

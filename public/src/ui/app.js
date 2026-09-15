@@ -592,6 +592,18 @@ function toast(msg){
 
 function renderEnding(){
   const e=game.state.ending;
+  // The launch funnel's terminal event: how far a run got and how it resolved.
+  // Guarded so re-renders of the same ending screen don't double-count.
+  if(!game.state.endingTracked){
+    game.state.endingTracked=true;
+    track('run_ended',{
+      ending:e.id, tone:e.tone,
+      year:game.state.year, age:game.state.age,
+      decisions:game.state.log.length,
+      capability:Math.round(game.state.stats.capability),
+      alignment:Math.round(game.state.stats.alignment),
+    });
+  }
   if(e.tone==='triumph') celebrate(160);
   const flags=Object.entries(game.state.flags).filter(([,v])=>v).map(([k])=>k);
   const moments=[...game.state.log]
@@ -604,12 +616,14 @@ function renderEnding(){
     people:activePeople(game.state).slice(0,8).map(p=>({sprite:p.sprite,name:p.name}))});
   $('#again').onclick=()=>{screen='start';render();};
   $('#cp').onclick=async()=>{
+    track('share_clicked',{method:'copy',ending:e.id,year:game.state.year});
     try{ await navigator.clipboard.writeText(shareUrl(game)); toast('Link copied'); }
     catch{ toast('Could not copy'); }
   };
   $('#share').onclick=async()=>{
     const url=shareUrl(game);
     const txt=`${game.state.name} — ${e.title}. ${game.state.year} years.`;
+    track('share_clicked',{method:navigator.share?'native':'copy',ending:e.id,year:game.state.year});
     if(navigator.share){ try{ await navigator.share({title:'DEVLIFE',text:txt,url}); }catch{} }
     else { try{ await navigator.clipboard.writeText(url); toast('Link copied'); }catch{ toast('Could not copy'); } }
   };
@@ -621,7 +635,7 @@ function renderShared(data){
   app.innerHTML=summaryHtml({tone:e.tone,title:e.title,text:e.text,
     year:data.yr,decisions:data.decisions,moments:data.moments||[],
     flags:data.flags||[],isLive:false,state:null});
-  $('#tryit').onclick=()=>{ history.replaceState(null,'',location.pathname); screen='start'; sharedData=null; render(); };
+  $('#tryit').onclick=()=>{ track('shared_link_converted',{}); history.replaceState(null,'',location.pathname); screen='start'; sharedData=null; render(); };
 }
 
 // ---------------- actions ----------------
@@ -831,7 +845,11 @@ let _rz; addEventListener('resize',()=>{ clearTimeout(_rz); _rz=setTimeout(()=>{
 
 initAnalytics();
 const shared = readSharedFromLocation();
-if(shared){ sharedData=shared; screen='shared'; }
+if(shared){
+  sharedData=shared; screen='shared';
+  // Inbound half of the viral loop: someone arrived on a friend's summary.
+  track('shared_link_opened',{ending:shared.end,year:shared.yr});
+}
 else {
   const save=loadSave();
   if(save){

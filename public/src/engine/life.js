@@ -245,7 +245,7 @@ export function tickLife(state, rng) {
       sprite: rng.int(1000), parentId: parent?.id || null,
     };
     L.kids.push(child);
-    notes.push({ kind:'good', text:`${child.name} is born. ${parent?.name || 'Your partner'} and you bring them home, and every plan becomes a little smaller and much more real.`, celebrate: true });
+    notes.push({ kind:'good', text:`${child.name} is born. ${parent?.name || 'Your partner'} and you bring them home, and every plan becomes a little smaller and much more real.`, celebrate: 'baby' });
     L.pregnancy = null;
   }
 

@@ -748,11 +748,34 @@ function summaryHtml({tone,title,text,year,decisions,moments,flags,isLive,seed,p
     <div class="e-faces">${people.map(p=>`<span class="e-face">
       <span class="portrait small"><i class="sprite" style="${spriteStyle(p,1)}"></i></span>
       ${esc(p.name)}</span>`).join('')}</div>` : '';
+  // The card at the top is the screenshot. Everything a stranger needs to
+  // understand the post has to fit inside it without scrolling: the verdict,
+  // who you were, how it went, and the name of the game.
+  const st = state?.stats || {};
+  const modelName = state?.modelName || 'the model';
+  const trueCap = state ? (state.trueCapability ?? st.capability) : null;
+  const hidden = state ? (state.concealed || 0) : 0;
+  const TONE_WORD = { triumph:'Triumph', catastrophe:'Catastrophe', bad:'Collapse', grey:'Quiet ending' };
+  const shareCard = `<div class="share-card tone-${tone}">
+    <div class="sc-top">
+      <span class="sc-brand">DEV<span>LIFE</span></span>
+      <span class="sc-verdict">${esc(TONE_WORD[tone]||tone)}</span>
+    </div>
+    <h1 class="sc-title">${esc(title)}</h1>
+    <div class="sc-line">${esc(state?.name||'A lab')} · ${year} years · ${decisions} decisions</div>
+    <div class="sc-figs">
+      <div class="sc-fig"><b>${trueCap!=null?Math.round(trueCap):'—'}</b><span>${esc(modelName)}</span></div>
+      <div class="sc-fig"><b>${Math.round(st.alignment??0)}</b><span>Alignment</span></div>
+      <div class="sc-fig"><b>${state?Math.round(state.equity??100):100}%</b><span>Still yours</span></div>
+    </div>
+    ${hidden>12?`<div class="sc-note">${esc(modelName)} was hiding ${Math.round(hidden)} points of capability from you.</div>`:''}
+    <div class="sc-foot">trydevlife.vercel.app</div>
+  </div>`;
+
   return `<div class="ending">
     <div class="end-plate">${state?renderWorld(state,'slice'):''}</div>
     <div class="end-body">
-      <span class="end-tone t-${tone}">${esc(tone)}</span>
-      <h1 class="end-title">${esc(title)}</h1>
+      ${shareCard}
       <p class="end-text">${esc(text)}</p>
       <div class="end-figs">
         <div class="end-fig"><b>${year}</b><span>Years</span></div>
@@ -870,7 +893,7 @@ function showLifeResult(res, fallbackTitle, kind='human'){
   const last=game.state.log[game.state.log.length-1];
   pushFeed({kind:kindOf(res.deltas,kind),lbl:last?.title||fallbackTitle,text:res.outcome.text,deltas:res.deltas,faces:newcomerFaces()});
   sheet={kind:'outcome',title:last?.title||fallbackTitle,text:res.outcome.text,deltas:res.deltas,finance:res.finance};
-  if(res.celebrate) celebrate();
+  if(res.celebrate) celebrate(140, typeof res.celebrate==='string'?res.celebrate:'confetti');
   if(game.isOver){ screen='ending'; sheet=null; }
   render();
 }
@@ -917,7 +940,7 @@ function onAge(){
   for(const n of notes){
     pushFeed({ kind: n.kind==='danger'||n.kind==='warn' ? 'danger' : n.kind==='good' ? 'good' : '',
       lbl:'', text:n.text });
-    if(n.celebrate) celebrate();
+    if(n.celebrate) celebrate(140, typeof n.celebrate==='string'?n.celebrate:'confetti');
   }
   if(game.isOver){ screen='ending'; render(); return; }
   if(game.current){ render(); openEvent(); return; }

@@ -109,7 +109,7 @@ export const HANDLERS = {
       L.lastRaiseYear = state.year;
       L.performance = Math.max(0, perf - 12);
       return { text: `They came back with ${fmtMoney(bump)} more. ${tenure} year${tenure===1?'':'s'} in the seat finally paid off.`,
-        deltas: { happiness: 6 } };
+        deltas: { happiness: 6 }, celebrate: 'money' };
     }
     L.performance = Math.max(0, perf - 8);
     return { text: `"Let's revisit at the next cycle." You have heard that before.`, deltas: { happiness: -5 } };
@@ -131,7 +131,7 @@ export const HANDLERS = {
       return { text: `${L.employer} offered you ${target.title} at ${fmtMoney(target.salary)}`
         + (sign ? `, plus a ${fmtMoney(sign)} signing bonus.` : '. You took it.')
         + (tenure < 1 ? ` Leaving this early raises an eyebrow, but nobody asks twice.` : ''),
-        deltas: { happiness: 8 } };
+        deltas: { happiness: 8 }, celebrate: 'milestone' };
     }
     return { text: `Four loops, one take-home, no offer. The rejection email is very polite.`,
       deltas: { happiness: -4 } };
@@ -148,7 +148,7 @@ export const HANDLERS = {
     const co = addPerson(L, rng, 'cofounder', { year: state.year, age:compatibleAge(state,rng), closeness: rng.range(55, 85) });
     return { text: `You resign on a Friday and incorporate on the Monday. ${co.name} signs on as co-founder `
       + `for a third of the company and half the risk.`,
-      deltas: { happiness: 10 }, celebrate: true };
+      deltas: { happiness: 10 }, celebrate: 'milestone' };
   },
 
   poach(state, rng) {
@@ -362,7 +362,7 @@ export const HANDLERS = {
       co.cofounder = true; co.kind = 'partner'; co.dates = Math.max(3, co.dates || 0); co.closeness = Math.min(100, co.closeness + 20);
       return { text: `It turns out ${co.name} had been waiting for you to say something. `
         + `The company now has a dynamic nobody has told the board about.`,
-        deltas: { happiness: 18, morale: -6 } };
+        deltas: { happiness: 18, morale: -6 }, celebrate: 'love' };
     }
     if (roll < 0.62) {
       co.closeness = Math.max(0, co.closeness - 25);
@@ -386,7 +386,7 @@ export const HANDLERS = {
     if (rng.chance(0.75 + p.closeness / 400)) {
       p.closeness = Math.min(100, p.closeness + 15); p.kind = 'spouse'; p.marriedYear = state.year;
       return { text: `You and ${p.name} get married. Your mother cries; so, later, do you.`,
-        deltas: { happiness: 20 }, celebrate: true };
+        deltas: { happiness: 20 }, celebrate: 'love' };
     }
     p.closeness = Math.max(0, p.closeness - 20);
     return { text: `${p.name} says not yet, and means it kindly, and it still lands hard.`,
@@ -458,7 +458,7 @@ export const HANDLERS = {
         p.dates += 1; p.closeness = Math.min(100, p.closeness + 12);
         if (p.dates >= 3) {
           p.cofounder ||= p.kind === 'cofounder'; p.kind = 'partner';
-          return { text: `After ${p.dates} dates across real years, you and ${p.name} stop calling it casual. You are together.`, deltas:{ happiness:16, morale:p.cofounder ? -3 : 0 } };
+          return { text: `After ${p.dates} dates across real years, you and ${p.name} stop calling it casual. You are together.`, deltas:{ happiness:16, morale:p.cofounder ? -3 : 0 }, celebrate: 'love' };
         }
         return { text: `${p.name} says yes. Date ${p.dates} is easy in a way you did not expect — no label yet, just momentum.`, deltas:{ happiness:10 } };
       }
@@ -470,7 +470,7 @@ export const HANDLERS = {
       if (p.closeness < 55) return { text: `${p.name} is not ready for that question yet. More life first.` };
       if (rng.chance(.36 + p.closeness / 120)) {
         p.kind = 'spouse'; p.marriedYear = state.year; p.closeness = Math.min(100, p.closeness + 14);
-        return { text: `${p.name} says yes. You call people you love until the battery gives up.`, deltas:{ happiness:22 }, celebrate: true };
+        return { text: `${p.name} says yes. You call people you love until the battery gives up.`, deltas:{ happiness:22 }, celebrate: 'love' };
       }
       p.closeness = Math.max(0, p.closeness - 18);
       return { text: `${p.name} says not yet. There is no villain, but there is a very long walk home.`, deltas:{ happiness:-12 } };

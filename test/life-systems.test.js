@@ -5,6 +5,7 @@ import { checkEndings } from '../public/src/engine/engine.js';
 import { ORIGINS, OPENING_BEATS } from '../public/src/data/origins.js';
 import { ACTIVITIES } from '../public/src/data/activities.js';
 import { LIFE_ACTIONS } from '../public/src/data/life-activities.js';
+import { CONFETTI_THEMES } from '../public/src/ui/confetti.js';
 
 // These are deliberately direct system checks. The long random simulation
 // exercises breadth; this locks down the connected loops a player can see.
@@ -207,4 +208,35 @@ console.log('life systems: connected finance, relationships, and crypto verified
   assert.equal(missingAct.length, 0, 'every activity has an icon: ' + missingAct.join(', '));
   assert.equal(missingLife.length, 0, 'every life action has an icon: ' + missingLife.join(', '));
   console.log('action rows: all ' + (ACTIVITIES.length + LIFE_ACTIONS.length) + ' actions carry an icon');
+}
+
+// ---- Celebrations --------------------------------------------------------
+// Confetti previously fired only on a triumph ending, which most runs never
+// reach — so almost nobody ever saw it. Milestones during play now carry it,
+// and every theme a trigger names must actually exist in the confetti module.
+{
+  const themes = new Set(CONFETTI_THEMES);
+  const used = new Set();
+  let runsWithCelebration = 0;
+  const N = 300;
+  for (let i = 0; i < N; i++) {
+    const g = new Game({ seed: 'party-' + i });
+    let guard = 0, any = false;
+    while (!g.isOver && guard++ < 200) {
+      if (g.current) { g.choose(0); continue; }
+      const before = g.state.year;
+      g.nextYear();
+      if (g.state.year === before) break;
+      for (const n of (g.yearNotes || [])) {
+        if (!n.celebrate) continue;
+        any = true;
+        if (typeof n.celebrate === 'string') used.add(n.celebrate);
+      }
+    }
+    if (any) runsWithCelebration++;
+  }
+  for (const t of used) assert(themes.has(t), `celebrate theme "${t}" exists in the confetti module`);
+  assert(runsWithCelebration / N > 0.5,
+    `most runs see a celebration (got ${(runsWithCelebration / N * 100).toFixed(0)}%)`);
+  console.log('celebrations: ' + (runsWithCelebration / N * 100).toFixed(0) + '% of runs, themes ' + [...used].join('/'));
 }

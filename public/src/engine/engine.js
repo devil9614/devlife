@@ -350,6 +350,22 @@ export function advanceYear(state, rng) {
   tickRivals(state, rng, notes);
   tickBoard(state, rng, notes);
 
+  // Milestones worth marking. The run is long and mostly tense, so the moments
+  // that genuinely went right should land — previously confetti fired only on a
+  // triumph ending, which most players never reached.
+  const marks = state._marks ||= {};
+  const cap = state.trueCapability ?? s.capability;
+  for (const [key, at, text, theme] of [
+    ['cap50',  cap >= 50,  `${state.modelName} crosses a threshold the team has been chasing for two years. Somebody opens something expensive.`, 'model'],
+    ['cap100', cap >= 100, `${state.modelName} is now, by any benchmark anyone trusts, one of the best systems in the world.`, 'model'],
+    ['cap160', cap >= 160, `You are at the frontier. Not near it — at it. Whatever happens next happens here first.`, 'model'],
+    ['rich',   state.life && state.life.cash >= 1e6, `Your personal balance crosses seven figures. You check it twice, then close the tab.`, 'money'],
+    ['lead',   rivalLead(state) < -25 && state.year > 3, `You are comfortably ahead of every other lab. For now, the pace is yours to set.`, 'milestone'],
+    ['profit', revenue > burn + 10 && state.flags.public_deployment, `Revenue covers the burn with room to spare. For the first time, the lab pays for itself.`, 'money'],
+  ]) {
+    if (at && !marks[key]) { marks[key] = state.year; notes.push({ kind: 'good', text, celebrate: theme }); }
+  }
+
   // Health and morale drift.
   if (s.funding < 15) { applyEffects(state, { morale: -6, health: -3 }); notes.push({ kind: 'warn', text: rng.pick([
     'Payroll clears with four days of margin. Two people ask, carefully, whether things are alright.',

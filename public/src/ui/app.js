@@ -4,7 +4,8 @@
 // the run is seen.
 
 import { Game } from '../engine/game.js';
-import { STAT_DEFS } from '../engine/state.js';
+import { STAT_DEFS, capabilityEstimate } from '../engine/state.js';
+import { rivalLead } from '../engine/engine.js';
 import { ACTIVITY_CATEGORIES } from '../data/activities.js';
 import { ENDINGS } from '../data/index.js';
 import { activePeople, alumni, traitOf, roleOf, spriteStyle } from '../engine/people.js';
@@ -162,6 +163,43 @@ function pulseHtml(){
   const s = game.state, st = s.stats, L = s.life;
   const vitals=[['Happiness',L.happiness,'happy'],['Health',st.health,'health'],['Reputation',st.reputation,'reputation'],['AI safety',st.containment,st.containment<35?'danger':'safety']];
   return `<div class="pulse">${vitals.map(([k,v,cls])=>`<div class="vital"><div><span>${k}</span><b>${Math.round(v)}</b></div><div class="vital-track"><i class="${cls}" style="width:${Math.max(2,Math.min(100,v))}%"></i></div></div>`).join('')}</div>`;
+}
+
+// ---------------- the frontier panel ----------------
+// Capability is the one number the player cannot simply read, so it is shown
+// as a measurement with a confidence band rather than a fact. The band is what
+// interpretability actually buys, made visible.
+function frontierHtml(){
+  const s=game.state, st=s.stats;
+  const est=capabilityEstimate(s);
+  const lead=rivalLead(s);
+  const live=(s.rivals||[]).filter(r=>r.alive);
+  const suspect=est.suspectGap||s.flags.sandbagging_suspected;
+
+  const capLine = suspect
+    ? `<b>~${est.shown}</b><span class="cap-band">±${Math.max(2,est.band)}</span>`
+    : `<b>${est.shown}</b>`;
+
+  const rivalRows = live.length
+    ? live.map(r=>{
+        const ahead=r.capability-(s.trueCapability??st.capability);
+        return `<div class="rival"><span>${esc(r.name)}</span><i class="${ahead>0?'ahead':'behind'}">${ahead>0?'+':''}${Math.round(ahead)}</i></div>`;
+      }).join('')
+    : `<div class="rival"><span>No labs left standing</span><i class="behind">—</i></div>`;
+
+  return `<div class="frontier">
+    <div class="fr-row">
+      <div class="fr-k">Measured capability</div>
+      <div class="fr-v">${capLine}</div>
+    </div>
+    ${suspect?`<div class="fr-warn">Your evals and your compute disagree. ${esc(s.modelName||'The model')} may be scoring below what it can do.</div>`:''}
+    <div class="fr-sub">The frontier</div>
+    ${rivalRows}
+    <div class="fr-row fr-foot">
+      <div class="fr-k">${lead>0?`Behind by ${lead}`:`Ahead by ${Math.abs(lead)}`}</div>
+      <div class="fr-v"><span class="fr-eq">${Math.round(s.equity??100)}% yours</span></div>
+    </div>
+  </div>`;
 }
 
 // ---------------- chronicle ----------------
@@ -779,7 +817,7 @@ function render(){
     app.className='wide';
     app.innerHTML=`
       <div class="col col-left">${chronicleHtml()}</div>
-      <div class="col col-mid">${worldHtml()}${pulseHtml()}${dockHtml()}</div>
+      <div class="col col-mid">${worldHtml()}${pulseHtml()}${frontierHtml()}${dockHtml()}</div>
       <div class="col col-right">
         <div class="desk-panel">${paneHtml('team')}</div>
         <div class="desk-panel">${paneHtml('model')}</div>
@@ -787,7 +825,7 @@ function render(){
       ${sheetHtml()}`;
   } else {
     app.className='';
-    app.innerHTML=worldHtml()+pulseHtml()+chronicleHtml()+dockHtml()+sheetHtml();
+    app.innerHTML=worldHtml()+pulseHtml()+frontierHtml()+chronicleHtml()+dockHtml()+sheetHtml();
   }
 
   const ageBtn=$('#age'); if(ageBtn) ageBtn.onclick=onAge;

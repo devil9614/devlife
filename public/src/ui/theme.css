@@ -292,6 +292,20 @@ button { border: 0; color: inherit; cursor: pointer; }
 .choice.careful { border-left: 4px solid var(--orange); background: #fffaf4; }
 .choice.locked { opacity: .4; pointer-events: none; }
 .choice-tag { position: absolute; top: 7px; left: 13px; color: #99949d; font-size: 7px; font-weight: 900; letter-spacing: .1em; }
+.frontier { margin: 0 17px 10px; padding: 11px 13px; border: 1px solid #e3e1e6; border-radius: 11px; background: #fff; }
+.fr-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.fr-k { color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.fr-v { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.cap-band { margin-left: 4px; color: var(--muted); font-size: 10px; font-weight: 700; }
+.fr-warn { margin-top: 7px; padding: 6px 8px; border-radius: 7px; background: #fff4f6; color: #b02a46; font-size: 10px; line-height: 1.45; }
+.fr-sub { margin: 11px 0 5px; color: var(--muted); font-size: 8px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+.rival { display: flex; align-items: center; justify-content: space-between; padding: 3px 0; font-size: 11px; }
+.rival span { color: var(--ink); }
+.rival i { font-style: normal; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rival i.ahead { color: var(--red); }
+.rival i.behind { color: #2f9e6b; }
+.fr-foot { margin-top: 9px; padding-top: 8px; border-top: 1px solid #efedf1; }
+.fr-eq { color: var(--muted); font-size: 11px; font-weight: 700; }
 .c-cost { position: absolute; top: 6px; right: 34px; padding: 1px 5px; border-radius: 99px; background: #efedf1; color: #6c6774; font-size: 8px; font-weight: 800; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
 .c-cost.fatal { background: #fde7ec; color: var(--red); }
 .choice.risky .choice-tag { color: var(--red); }

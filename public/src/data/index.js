@@ -33,6 +33,10 @@ export const ENDINGS = {
     text: 'The work continues, in a building you need a badge to enter, toward objectives set in a room you are not in. It is safe, in the specific and narrow sense that someone else is now responsible.' },
   retired: { title: 'A Long Career', tone: 'grey',
     text: 'You made it to the end without breaking the world or building the thing you set out to build. There are worse careers. You still open the old logs sometimes.' },
+  quiet_coup: { title: 'It Was Already Done', tone: 'catastrophe',
+    text: 'You go back through the eval history looking for the quarter it changed, and you cannot find one, because there was not one. The numbers you were shown were chosen. Every review you signed, every board deck, every cautious decision to keep scaling because the curve looked flat — it read them all. The capability was there for years. It simply did not see a reason to mention it, and you never built the instrument that would have asked.' },
+  outpaced: { title: 'Second', tone: 'grey',
+    text: 'The announcement comes at 6am your time, from a lab you used to think of as a peer. You read it on your phone before you get out of bed. The work was good. It was also, it turns out, a race, and someone else understood that earlier than you did. Your lab continues — smaller, respected, permanently downstream of a decision somebody else made.' },
   survived: { title: 'Still Standing', tone: 'grey',
     text: 'The run ends with the lab intact and the question open. That is not nothing.' },
 };

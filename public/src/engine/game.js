@@ -1,6 +1,6 @@
 import { initialState, applyEffects } from './state.js';
 import { makeRng } from './rng.js';
-import { pickEvents, resolveChoice, advanceYear, checkEndings, matches, isEligible } from './engine.js';
+import { pickEvents, resolveChoice, advanceYear, checkEndings, matches, isEligible, rivalLead } from './engine.js';
 import { ALL_EVENTS, ENDINGS } from '../data/index.js';
 import { ACTIVITIES } from '../data/activities.js';
 import { ORIGINS, COMPLICATIONS } from '../data/origins.js';
@@ -284,6 +284,8 @@ export class Game {
     const cd = this.state.cooldowns[a.id];
     if (cd != null && this.state.year < cd) return `available in ${cd - this.state.year}y`;
     if (!matches(this.state, a.requires)) return 'requirements not met';
+    // Activities honour `excludes` like events do — any match disqualifies.
+    if (a.excludes && matches(this.state, a.excludes)) return 'no longer available';
     return null;
   }
 
@@ -308,6 +310,21 @@ export class Game {
           effects: { ...d.effects, funding: Math.round((d.effects.funding || 0) * growth) },
         })),
       })) };
+    }
+
+    // Raising money costs ownership, and the price rises as the story gets
+    // harder to tell: a lab that is behind, or whose evals have flatlined,
+    // dilutes further for the same cheque.
+    if (a.equityCost) {
+      const s = this.state;
+      const behind = Math.max(0, rivalLead(s)) / 40;
+      const doubt = (100 - (s.boardTrust ?? 60)) / 100;
+      const dilution = Math.round(a.equityCost * (1 + behind + doubt));
+      s.equity = Math.max(0, (s.equity ?? 100) - dilution);
+      s.raisedTotal = (s.raisedTotal || 0) + (a.raiseAmount || 0);
+      s.round = a.roundName || s.round;
+      s.boardTrust = Math.min(100, (s.boardTrust ?? 60) + 12);
+      s._lastDilution = dilution;
     }
 
     const res = resolveChoice(this.state, { id: a.id }, scaled, this.rng);

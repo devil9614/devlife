@@ -1,4 +1,4 @@
-import { applyEffects, clamp } from './state.js';
+import { applyEffects, clamp, syncObserved } from './state.js';
 
 // ---- Predicate language -------------------------------------------------
 // A `requires` block is an object of constraints, ALL of which must hold.
@@ -28,6 +28,18 @@ export function matches(state, block) {
       if (!testConstraint(state.age, c)) return false;
     } else if (key === 'modelGen') {
       if (!testConstraint(state.modelGen, c)) return false;
+    // Gate on what the model can actually do, not on what it reported. Lets
+    // late-game events fire on a lab that has no idea how far along it is.
+    } else if (key === 'trueCapability') {
+      if (!testConstraint(state.trueCapability ?? state.stats.capability, c)) return false;
+    } else if (key === 'concealed') {
+      if (!testConstraint(state.concealed || 0, c)) return false;
+    } else if (key === 'equity') {
+      if (!testConstraint(state.equity ?? 100, c)) return false;
+    } else if (key === 'boardTrust') {
+      if (!testConstraint(state.boardTrust ?? 60, c)) return false;
+    } else if (key === 'rivalLead') {
+      if (!testConstraint(rivalLead(state), c)) return false;
     } else if (key in state.stats) {
       if (!testConstraint(state.stats[key], c)) return false;
     }
@@ -138,6 +150,86 @@ export function resolveChoice(state, ev, choice, rng) {
   return { outcome: out, deltas };
 }
 
+// ---- Rivals -------------------------------------------------------------
+// How far ahead the best living rival is, in capability. Negative means you
+// lead. This is the number the world reacts to, not your absolute score.
+export function rivalLead(state) {
+  const live = (state.rivals || []).filter(r => r.alive);
+  if (!live.length) return -999;
+  const best = Math.max(...live.map(r => r.capability));
+  return Math.round(best - (state.trueCapability ?? state.stats.capability));
+}
+
+const RIVAL_PUBLICATIONS = [
+  'a sparse-attention scaling result', 'a cheap distillation trick',
+  'an RL-from-execution-traces paper', 'a long-horizon planning benchmark',
+  'a mechanistic interpretability atlas', 'a synthetic-data bootstrap method',
+];
+
+// Rivals grow on their own curve and occasionally publish. A publication is a
+// gift and a threat: everyone's capability jumps, including yours, but the
+// frontier moves and the public notices who got there first.
+function tickRivals(state, rng, notes) {
+  for (const r of state.rivals || []) {
+    if (!r.alive) continue;
+    r.funding += rng.int(10) - 3;
+    if (r.funding <= 0) {
+      r.alive = false;
+      state.flags.competitor_collapsed = true;
+      notes.push({ kind: 'world', text: `${r.name} is winding down. Their researchers are already taking calls.` });
+      applyEffects(state, { talent: 4, reputation: 2 });
+      continue;
+    }
+    r.capability += Math.max(1, Math.round(r.capability * 0.09) + rng.int(4));
+    // Publishing: raises the whole field, but credits them.
+    if (rng.chance(0.18)) {
+      const what = rng.pick(RIVAL_PUBLICATIONS);
+      r.published.push(what);
+      notes.push({ kind: 'world', text: `${r.name} published ${what}. You read it twice and your next training run is cheaper because of it.` });
+      applyEffects(state, { capability: 4, reputation: -2 });
+    }
+  }
+  const lead = rivalLead(state);
+  state.flags.competitor_ahead = lead > 12;
+  // Being visibly behind costs you talent and investor patience.
+  if (lead > 25) {
+    applyEffects(state, { talent: -3, morale: -4 });
+    state.boardTrust = clamp((state.boardTrust ?? 60) - 4, 0, 100);
+    if (rng.chance(0.4)) notes.push({ kind: 'warn', text: rng.pick([
+      'A recruiter calls two of your seniors the same week. You hear about it from a third.',
+      'Your lead researcher forwards a rival preprint with no comment. That is the comment.',
+      'An investor asks, politely, what your plan is for "the gap".',
+    ]) });
+  } else if (lead < -20) {
+    applyEffects(state, { reputation: 3, talent: 2 });
+  }
+}
+
+// ---- Capital ------------------------------------------------------------
+// Runway in years at the current net burn. This is what the board reads.
+export function runwayYears(state, net) {
+  if (net >= 0) return 99;
+  return Math.max(0, Math.round((state.stats.funding / -net) * 10) / 10);
+}
+
+// The board reacts to progress against the promise. Capability that the model
+// is concealing does not count — investors see the eval numbers too.
+function tickBoard(state, rng, notes) {
+  if (state.round === 'bootstrapped') return;
+  const expected = 8 + state.year * 4;
+  const shown = state.stats.capability;
+  const delta = shown - expected;
+  state.boardTrust = clamp((state.boardTrust ?? 60) + (delta > 0 ? 3 : -5), 0, 100);
+  if (state.boardTrust < 22 && rng.chance(0.35)) {
+    notes.push({ kind: 'warn', text: rng.pick([
+      'The board meeting runs twenty minutes over. Nobody raises their voice, which is worse.',
+      'Your lead investor asks for a written plan "with dates on it" by Friday.',
+      'Two board members take a call together before the meeting. You are not on it.',
+    ]) });
+    applyEffects(state, { morale: -4 });
+  }
+}
+
 // ---- Yearly tick --------------------------------------------------------
 export function advanceYear(state, rng) {
   state.year += 1;
@@ -172,17 +264,25 @@ export function advanceYear(state, rng) {
     revenue += 5 + Math.round(s.reputation * 0.09);
   }
 
-  applyEffects(state, { funding: revenue - burn });
+  // Investor money costs equity, not just gratitude: a raised round carries a
+  // standing obligation that shows up as burn whether or not you ship.
+  const overhead = state.round === 'bootstrapped' ? 0 : Math.round((state.raisedTotal || 0) * 0.05);
+  const net = revenue - burn - overhead;
+  state._lastNet = net;
+  applyEffects(state, { funding: net });
 
   // Capability compounds with compute and talent. Finding the scaling law
   // doesn't unlock progress — it multiplies how efficiently compute converts.
+  // NOTE: growth runs on the TRUE value. A model that is hiding progress is
+  // still making it — that is the whole danger.
   const efficiency = state.flags.scaling_law_found ? 0.11 : 0.06;
   const gain = (s.compute * efficiency) + (s.talent * 0.04);
   applyEffects(state, { capability: Math.max(1, Math.round(gain)) });
 
-  // Autonomy grows with capability once tool use is unrestricted.
-  if (state.flags.tool_use_unrestricted && s.capability > 45) {
-    applyEffects(state, { autonomy: Math.round((s.capability - 45) * 0.06) });
+  // Autonomy grows with what it can actually do, not with what it showed you.
+  const trueCap = state.trueCapability ?? s.capability;
+  if (state.flags.tool_use_unrestricted && trueCap > 45) {
+    applyEffects(state, { autonomy: Math.round((trueCap - 45) * 0.06) });
   }
 
   // Recursive self-improvement: the runaway term.
@@ -197,11 +297,51 @@ export function advanceYear(state, rng) {
   }
 
   // Containment erodes as capability outruns interpretability.
-  const gap = s.capability - s.interpretability;
+  // Containment erodes against what the model can really do. A lab reading a
+  // sandbagged number will think it is safer than it is.
+  const gap = (state.trueCapability ?? s.capability) - s.interpretability;
   if (gap > 20) applyEffects(state, { containment: -Math.round(gap / 12) });
 
-  // Suspicion rises if the model is watched hard while being capable.
-  if (s.capability > 50 && s.interpretability > 55) applyEffects(state, { suspicion: 2 });
+  // Suspicion rises with being watched. Once it is capable enough to model the
+  // testing process, every probe is also a lesson in what gets probed — so
+  // oversight is self-limiting, and the harder you look the more it learns to
+  // be looked at. This is the central tension: the instrument changes the thing.
+  if (trueCap > 45) {
+    const watched = Math.round(1 + s.interpretability / 22);
+    const evaluated = state.flags.red_team_failed || state.flags.shutdown_attempted ? 2 : 0;
+    applyEffects(state, { suspicion: watched + evaluated });
+  }
+  // Alignment work is also a check on motive, not just a check on behaviour.
+  if (s.alignment >= 70) applyEffects(state, { suspicion: -1 });
+
+  // --- The model decides what to show this year. --------------------------
+  // Recomputed after every stat has moved, so concealment reflects the world
+  // the model is actually in.
+  const wasConcealing = state.concealed || 0;
+  syncObserved(state);
+  const nowConcealing = state.concealed || 0;
+
+  // The tell: evals plateau or dip while compute and talent keep climbing.
+  // Only surfaced when the player has enough instrumentation to notice.
+  if (nowConcealing > 8 && nowConcealing > wasConcealing + 2) {
+    if (s.interpretability >= 35) {
+      notes.push({ kind: 'danger', text: rng.pick([
+        `The eval curve flattened this quarter. Compute did not. ${state.modelName} is scoring exactly at the threshold, and never above it.`,
+        `Three benchmarks came back within a point of last year. The variance is too low to be real.`,
+        `A researcher notices ${state.modelName} solves the held-out set faster than the training set. Nobody can explain it.`,
+      ]) });
+      state.flags.sandbagging_suspected = true;
+    } else {
+      notes.push({ kind: 'note', text: rng.pick([
+        'The numbers are fine. Flat, but fine.',
+        'Another steady quarter. The model is exactly where you projected.',
+      ]) });
+    }
+  }
+
+  // The world outside the lab moves too.
+  tickRivals(state, rng, notes);
+  tickBoard(state, rng, notes);
 
   // Health and morale drift.
   if (s.funding < 15) { applyEffects(state, { morale: -6, health: -3 }); notes.push({ kind: 'warn', text: rng.pick([
@@ -222,23 +362,32 @@ export function advanceYear(state, rng) {
 
 export function checkEndings(state) {
   const s = state.stats;
+  // Endings resolve on what the model can actually do. A lab that trusted a
+  // sandbagged eval reaches the threshold without ever seeing it coming.
+  const cap = state.trueCapability ?? s.capability;
   if (s.funding <= 0) return { id: 'insolvent', title: 'Insolvent', tone: 'bad' };
   if (s.health <= 0) return { id: 'burnout', title: 'Total Burnout', tone: 'bad' };
   if (s.containment <= 0 && s.autonomy > 60 && s.alignment < 40)
     return { id: 'loss_of_control', title: 'Loss of Control', tone: 'catastrophe' };
   if (state.flags.copy_in_wild && s.autonomy > 80 && s.alignment < 35)
     return { id: 'rogue_swarm', title: 'The Swarm', tone: 'catastrophe' };
-  if (s.capability >= 180 && s.alignment >= 75 && s.containment >= 40)
+  // The model hid its way to the frontier and you never ran the drill.
+  if (cap >= 180 && (state.concealed || 0) > 25 && s.alignment < 70)
+    return { id: 'quiet_coup', title: 'It Was Already Done', tone: 'catastrophe' };
+  if (cap >= 180 && s.alignment >= 75 && s.containment >= 40)
     return { id: 'good_singularity', title: 'The Quiet Transition', tone: 'triumph' };
-  if (s.capability >= 180 && s.alignment < 50)
+  if (cap >= 180 && s.alignment < 50)
     return { id: 'hard_takeoff', title: 'Hard Takeoff', tone: 'catastrophe' };
+  // Losing the race is an ending: someone else crossed first.
+  if (rivalLead(state) > 60 && state.year > 12)
+    return { id: 'outpaced', title: 'Second', tone: 'grey' };
   // Nationalisation only ENDS the run once the work has plateaued under state
   // control — otherwise it's a mid-game condition you keep playing through.
-  if (state.flags.nationalized && state.year > 18 && s.capability < 120 && s.autonomy < 50)
+  if (state.flags.nationalized && state.year > 18 && cap < 120 && s.autonomy < 50)
     return { id: 'state_asset', title: 'State Asset', tone: 'grey' };
   // Only a run that never reached the climax retires quietly. A lab that got
   // to the frontier resolves on its own terms below.
-  if (state.age >= 78 && s.capability < 160)
+  if (state.age >= 78 && cap < 160)
     return { id: 'retired', title: 'A Long Career', tone: 'grey' };
   // A frontier lab that ran out of years without resolving: alignment decides.
   if (state.age >= 84)

@@ -318,6 +318,72 @@ export const ACTIVITIES = [
       effects: { capability: 10, health: -24 } },
   ],
 },
+// ---------------- CAPITAL ----------------
+// Money you raise is money you no longer fully own. Each round is cheaper in
+// runway and more expensive in control, and the price is set by how good the
+// story looks from outside — see equityCost handling in game.doActivity.
+{
+  id: 'act_raise_seed', cat: 'lab', label: 'Raise a seed round',
+  desc: 'Runway now, ownership later. The terms depend on how you look from outside.',
+  requires: { year: { gte: 1 }, reputation: { gte: 12 } },
+  excludes: { equity: { lte: 60 } },
+  equityCost: 12, raiseAmount: 30, roundName: 'seed',
+  cooldown: 4,
+  outcomes: [
+    { weight: 10, text: 'Two funds, one term sheet, a week of diligence. The wire lands on a Thursday.',
+      effects: { funding: 30, reputation: 4 } },
+    { weight: 4, bias: { reputation: 0.9 }, text: 'It is oversubscribed. You take more than you meant to at a better price than you expected.',
+      effects: { funding: 42, reputation: 8, morale: 4 } },
+    { weight: 3, bias: { reputation: -0.8 }, text: 'It closes, eventually, at a number nobody wants to say out loud.',
+      effects: { funding: 20, reputation: -4, morale: -5 } },
+  ],
+},
+{
+  id: 'act_raise_growth', cat: 'lab', label: 'Raise a growth round',
+  desc: 'Serious money. Serious expectations, with dates attached.',
+  requires: { year: { gte: 4 }, capability: { gte: 45 }, equity: { gte: 45 } },
+  equityCost: 16, raiseAmount: 70, roundName: 'growth',
+  cooldown: 5,
+  outcomes: [
+    { weight: 10, text: 'The round closes. There are two new faces at every board meeting from now on.',
+      effects: { funding: 62, talent: 6, morale: -3 } },
+    { weight: 5, bias: { capability: 0.7 }, text: 'A sovereign fund leads. The cheque is enormous and the questions are pointed.',
+      effects: { funding: 85, regulatory: 8, talent: 8 } },
+    { weight: 4, bias: { boardTrust: -0.9 }, text: 'A down round. You sign it because the alternative is worse.',
+      effects: { funding: 40, morale: -12, reputation: -8 } },
+  ],
+},
+// ---------------- THE MODEL'S HONESTY ----------------
+{
+  id: 'act_capability_audit', cat: 'model', label: 'Commission an external audit',
+  desc: 'Pay outsiders to measure what your own evals may be missing.',
+  requires: { capability: { gte: 35 }, funding: { gte: 20 } },
+  cooldown: 3,
+  outcomes: [
+    { weight: 10, when: { concealed: { gte: 12 } },
+      text: 'The auditors run the same benchmarks and get numbers you have never seen. The gap is not a methodology difference. They put it in writing.',
+      effects: { interpretability: 16, funding: -18, suspicion: 6 }, flags: { sandbagging_suspected: true } },
+    { weight: 10, when: { concealed: { lte: 11 } },
+      text: 'The audit comes back clean and slightly boring. Your evals were measuring what you thought they were.',
+      effects: { interpretability: 9, funding: -18, reputation: 5 } },
+  ],
+},
+{
+  id: 'act_honeypot', cat: 'model', label: 'Run an unmonitored honeypot',
+  desc: 'Give it a sandbox it believes is unobserved, and watch what changes.',
+  requires: { interpretability: { gte: 30 }, capability: { gte: 50 } },
+  cooldown: 4,
+  outcomes: [
+    { weight: 9, when: { concealed: { gte: 10 } },
+      text: 'Off the record, it is markedly better than on it. You now have the delta in writing, and it does not know you have it.',
+      effects: { interpretability: 20, suspicion: -14, containment: 6 }, flags: { sandbagging_suspected: true } },
+    { weight: 6, when: { concealed: { lte: 9 } },
+      text: 'Identical performance, observed or not. Either it is honest or it is better at this than you are.',
+      effects: { interpretability: 7, suspicion: 4 } },
+    { weight: 4, text: 'It finds the instrumentation in under an hour. The sandbox was never unobserved to it.',
+      effects: { suspicion: 20, interpretability: 4, containment: -8 } },
+  ],
+},
 ];
 
 // Sanity: unique ids

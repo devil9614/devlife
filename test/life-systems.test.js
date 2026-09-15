@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { Game } from '../public/src/engine/game.js';
+import { syncObserved, capabilityEstimate } from '../public/src/engine/state.js';
+import { checkEndings } from '../public/src/engine/engine.js';
 
 // These are deliberately direct system checks. The long random simulation
 // exercises breadth; this locks down the connected loops a player can see.
@@ -79,3 +81,36 @@ import { Game } from '../public/src/engine/game.js';
 }
 
 console.log('life systems: connected finance, relationships, and crypto verified');
+
+// ---- Deception, rivals, capital -----------------------------------------
+// The model's private state is the spine of the late game: if concealment ever
+// stops responding to interpretability, the counterplay silently disappears and
+// the mechanic becomes a coin flip. Pin the shape of that curve.
+{
+  const mk = (interp) => ({
+    stats: { capability: 0, alignment: 35, interpretability: interp, suspicion: 80 },
+    trueCapability: 150, concealed: 0, flags: {},
+  });
+  const blind = mk(10), seeing = mk(85);
+  syncObserved(blind); syncObserved(seeing);
+  assert(blind.concealed > 40, 'a blind lab should be badly deceived');
+  assert(seeing.concealed < 10, 'an instrumented lab should see nearly everything');
+  assert(blind.stats.capability < seeing.stats.capability,
+    'the blind lab reports a lower number than the instrumented one, despite identical true capability');
+
+  // The warning must reach the middle, and must NOT reach the blind — being
+  // unaware is the actual failure state the ending punishes.
+  assert(capabilityEstimate(mk(40)).suspectGap === true, 'a partly-instrumented lab notices the discrepancy');
+  assert(capabilityEstimate(blind).suspectGap === false, 'a blind lab has no reason to doubt its evals');
+
+  // Endings must resolve on the truth, never on the sandbagged readout.
+  const hidden = mk(10);
+  hidden.trueCapability = 200;          // past the frontier threshold
+  syncObserved(hidden);
+  hidden.stats = { ...hidden.stats, funding: 50, health: 50, containment: 50, autonomy: 10 };
+  hidden.year = 5; hidden.age = 40; hidden.rivals = [];
+  const e = checkEndings(hidden);
+  assert(hidden.stats.capability < 180, 'the readout is below the frontier threshold');
+  assert(e && e.id === 'quiet_coup', 'a lab deceived to the frontier gets the coup ending, not safety');
+  console.log('deception: concealment tracks interpretability, endings resolve on truth');
+}

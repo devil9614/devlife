@@ -74,6 +74,19 @@ function migrateSave(data) {
   migratePortraits(L.people);
   migratePortraits(data.state.people);
   migrateRelationships(L.people, data.state.age, data.state.year);
+  // Saves from before the model kept its own counsel: assume it had been
+  // showing the truth, and give the world its rivals and cap table.
+  const S = data.state;
+  S.trueCapability ??= S.stats?.capability ?? 8;
+  S.concealed ??= 0;
+  S.equity ??= 100;
+  S.round ??= 'bootstrapped';
+  S.boardTrust ??= 60;
+  S.raisedTotal ??= 0;
+  S.rivals ||= [
+    { id: 'helion', name: 'Helion Research', capability: Math.max(10, Math.round((S.stats?.capability ?? 10) * 0.9)), funding: 42, alignment: 48, alive: true, published: [] },
+    { id: 'mkiv', name: 'MK-IV Collective', capability: Math.max(6, Math.round((S.stats?.capability ?? 6) * 0.6)), funding: 30, alignment: 62, alive: true, published: [] },
+  ];
   data.ui ||= {};
   data.v = VERSION;
   return data;

@@ -292,6 +292,8 @@ button { border: 0; color: inherit; cursor: pointer; }
 .choice.careful { border-left: 4px solid var(--orange); background: #fffaf4; }
 .choice.locked { opacity: .4; pointer-events: none; }
 .choice-tag { position: absolute; top: 7px; left: 13px; color: #99949d; font-size: 7px; font-weight: 900; letter-spacing: .1em; }
+.c-cost { position: absolute; top: 6px; right: 34px; padding: 1px 5px; border-radius: 99px; background: #efedf1; color: #6c6774; font-size: 8px; font-weight: 800; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+.c-cost.fatal { background: #fde7ec; color: var(--red); }
 .choice.risky .choice-tag { color: var(--red); }
 .choice.bold .choice-tag { color: var(--blue); }
 .choice.careful .choice-tag { color: #ba781f; }

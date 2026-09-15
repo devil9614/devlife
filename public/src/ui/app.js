@@ -221,6 +221,26 @@ function choiceHint(label){
   return tone==='risky'?'CHAOS':tone==='bold'?'BIG MOVE':tone==='careful'?'SAFE PLAY':'YOUR CALL';
 }
 
+// What a choice will cost in funding, shown on the button before it is taken.
+// 98% of bankruptcies came from a single unpriced decision, so the price has to
+// be on the button — but only the part we can state honestly: a cost every
+// outcome shares. A choice whose outcomes disagree gets a range, and one whose
+// cheapest outcome is free stays unlabelled rather than implying a certainty.
+function choiceCost(choice){
+  const outs=choice?.outcomes||[];
+  if(!outs.length) return null;
+  const costs=outs.map(o=>Number(o?.effects?.funding)||0);
+  if(costs.some(c=>c>=0)) return null;           // not a guaranteed cost
+  const worst=Math.min(...costs), best=Math.max(...costs);
+  // Mirror the engine's per-year clamp so the preview matches the deduction.
+  const spent=game.state._spentThisYear||0;
+  const cap=game.state.year<6?20:30;
+  const room=Math.max(6,cap-spent);
+  const clamp=v=>-Math.min(-v,room);
+  const lo=clamp(worst), hi=clamp(best);
+  return lo===hi?`${lo}`:`${lo} to ${hi}`;
+}
+
 function personSheetHtml(personId){
   const p=game.state.life.people.find(x=>x.id===personId);
   if(!p) return `<div class="panel-bd"><div class="empty">This relationship has moved on.</div></div>`;
@@ -288,8 +308,15 @@ function sheetHtml(){
       <div class="ch-hd"><div class="ch-k">Year ${game.state.year} · a decision</div>
       <h2>${esc(ev.title)}</h2></div>
       <div class="ch-bd"><p>${esc(ev.text)}</p>
-      ${ev.choices.map((c,i)=>`<button class="choice ${choiceTone(c.label)}" data-ch="${i}">
-        <span class="choice-tag">${choiceHint(c.label)}</span><span class="c-t">${esc(c.label)}</span><span class="choice-arrow">→</span></button>`).join('')}</div>`;
+      ${ev.choices.map((c,i)=>{
+        const cost=choiceCost(c);
+        // Flag the case that actually ends runs: a cost you cannot absorb.
+        const fatal=cost&&game.state.stats.funding+Math.min(...(c.outcomes||[]).map(o=>Number(o?.effects?.funding)||0))<=0;
+        return `<button class="choice ${choiceTone(c.label)}" data-ch="${i}">
+        <span class="choice-tag">${choiceHint(c.label)}</span><span class="c-t">${esc(c.label)}</span>${
+        cost?`<span class="c-cost${fatal?' fatal':''}">${esc(cost)}${fatal?' · all you have':''}</span>`:''
+        }<span class="choice-arrow">→</span></button>`;
+      }).join('')}</div>`;
   }
 
   if(sheet.kind==='outcome'){

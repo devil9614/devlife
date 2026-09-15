@@ -925,6 +925,46 @@ function autosave(){
 }
 
 // ---------------- root ----------------
+/**
+ * Re-render only the open sheet, preserving its scroll position.
+ * A full render() rebuilds app.innerHTML, which destroys the scroll container
+ * and makes an accordion toggle flash the whole page. Expanding a group is a
+ * local change, so only the local DOM should move.
+ */
+function refreshSheet(){
+  const scrim=$('#scrim');
+  const panel=scrim&&scrim.querySelector('.chapter');
+  if(!panel){ render(); return; }
+  const body=panel.querySelector('.panel-bd');
+  const top=body?body.scrollTop:0;
+  const html=sheetHtml();
+  if(!html){ render(); return; }
+  // Replace the panel in place rather than the whole app.
+  const next=document.createElement('div');
+  next.innerHTML=html;
+  const nextPanel=next.querySelector('.chapter');
+  if(!nextPanel){ render(); return; }
+  panel.replaceWith(nextPanel);
+  const nextBody=nextPanel.querySelector('.panel-bd');
+  if(nextBody) nextBody.scrollTop=top;
+  bindSheet();
+}
+
+/** Rebind only the handlers that live inside the sheet. */
+function bindSheet(){
+  app.querySelectorAll('[data-lockcat]').forEach(s=>s.onclick=e=>{
+    e.preventDefault();
+    lockOpen = lockOpen===s.dataset.lockcat ? null : s.dataset.lockcat;
+    refreshSheet();
+  });
+  app.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{
+    actCat = (actCat===b.dataset.cat) ? null : b.dataset.cat;
+    refreshSheet();
+  });
+  app.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>onActivity(b.dataset.act));
+  app.querySelectorAll('[data-life]').forEach(b=>b.onclick=()=>onLifeAction(b.dataset.life));
+}
+
 function render(){
   if(screen==='start') return renderStart();
   if(screen==='shared') return renderShared(sharedData);
@@ -967,12 +1007,12 @@ function render(){
     // Remember which locked list is expanded, so a re-render keeps it open.
     e.preventDefault();
     lockOpen = lockOpen===s.dataset.lockcat ? null : s.dataset.lockcat;
-    render();
+    refreshSheet();
   });
   app.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{
     // Tapping an open group closes it, so the list can return to an overview.
     actCat = (actCat===b.dataset.cat) ? null : b.dataset.cat;
-    render();
+    refreshSheet();
   });
   app.querySelectorAll('[data-asset-cat]').forEach(b=>b.onclick=()=>{assetCat=b.dataset.assetCat;render();});
   app.querySelectorAll('[data-asset-detail]').forEach(b=>b.onclick=()=>{sheet={kind:'asset-detail',assetId:b.dataset.assetDetail};render();});

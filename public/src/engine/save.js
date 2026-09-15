@@ -8,6 +8,7 @@
 //     ids and rehydrated, since functions/identity don't survive JSON.
 
 import { ALL_EVENTS } from '../data/index.js';
+import { OPENING_BEATS } from '../data/origins.js';
 import { makeRng } from './rng.js';
 import { FEMININE_GIVEN_NAMES, FEMME_AVATARS } from './people.js';
 
@@ -140,7 +141,12 @@ export function restoreGame(GameClass, data) {
   g.rng = makeRestoredRng(data.seed, data.rng);
   g.state = data.state;
   g.world = data.state.world;
-  g.queue = (data.queue || []).map(id => ALL_EVENTS.find(e => e.id === id)).filter(Boolean);
+  // The origin's opening beat is authored per-origin, not part of ALL_EVENTS,
+  // so it has to be restored from OPENING_BEATS or a save taken mid-beat would
+  // silently drop the player's first decision.
+  g.openingBeat = OPENING_BEATS[data.state.origin?.id] || null;
+  const pool = g.openingBeat ? [...ALL_EVENTS, g.openingBeat] : ALL_EVENTS;
+  g.queue = (data.queue || []).map(id => pool.find(e => e.id === id)).filter(Boolean);
   g.yearNotes = data.yearNotes || [];
   g._rosterNotes = [];
   g._shownFor = null;

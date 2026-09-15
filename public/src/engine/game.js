@@ -3,7 +3,7 @@ import { makeRng } from './rng.js';
 import { pickEvents, resolveChoice, advanceYear, checkEndings, matches, isEligible, rivalLead } from './engine.js';
 import { ALL_EVENTS, ENDINGS } from '../data/index.js';
 import { ACTIVITIES } from '../data/activities.js';
-import { ORIGINS, COMPLICATIONS } from '../data/origins.js';
+import { ORIGINS, COMPLICATIONS, OPENING_BEATS } from '../data/origins.js';
 import { makeWorld, pickText } from './variation.js';
 import { foundingTeam, tickPeople, makePerson, activePeople } from './people.js';
 import { initialLife, tickLife, jobOf, netWorth, fmtMoney } from './life.js';
@@ -59,6 +59,11 @@ export class Game {
 
     this.queue = [];
     this.yearNotes = [];
+    // The guided first year: one authored decision belonging to THIS origin,
+    // guaranteed to be the first thing the player sees. It teaches that choices
+    // cost something and that the run has a specific story, before the random
+    // pool takes over.
+    this.openingBeat = OPENING_BEATS[this.state.origin?.id] || null;
     // BitLife-style pacing: time advances only when the player chooses to age.
     // Voluntary activities are not constrained by an arbitrary turn budget.
     this.state.actionsLeft = null;   // retained for backwards-compatible saves
@@ -83,6 +88,11 @@ export class Game {
     // revenue. Pacing ramps up as the run matures.
     const y = this.state.year;
     const n = y < 3 ? 1 : y < 7 ? this.rng.range(1, 2) : this.rng.range(2, 3);
+    // The origin's opening beat jumps the queue exactly once, at year 0.
+    if (this.openingBeat && !this.state.seen[this.openingBeat.id]) {
+      this.queue = [this.openingBeat];
+      return;
+    }
     this.queue = pickEvents(this.state, ALL_EVENTS, this.rng, n);
     // Safety net: an empty pool must never strand the player, but it also must
     // not silently burn years of economy. Relax the repeat filter instead and

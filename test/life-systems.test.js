@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { Game } from '../public/src/engine/game.js';
 import { syncObserved, capabilityEstimate } from '../public/src/engine/state.js';
 import { checkEndings } from '../public/src/engine/engine.js';
+import { ORIGINS, OPENING_BEATS } from '../public/src/data/origins.js';
 
 // These are deliberately direct system checks. The long random simulation
 // exercises breadth; this locks down the connected loops a player can see.
@@ -167,4 +168,30 @@ console.log('life systems: connected finance, relationships, and crypto verified
   assert(g.state.trueCapability === g.state.stats.capability,
     'year 0 starts honest — nothing is hidden before there is anything to hide');
   console.log('opening: premise present, no false alarms before year 2');
+}
+
+// ---- The guided first year ----------------------------------------------
+// Every origin opens on a decision belonging to ITS story. This is the first
+// thing a new player ever sees, so it must fire for every origin, exactly once,
+// and hand off cleanly to the random pool afterwards.
+{
+  const covered = new Set();
+  let failures = [];
+  for (let i = 0; i < 300; i++) {
+    const g = new Game({ seed: 'beat-' + i });
+    const oid = g.state.origin.id;
+    covered.add(oid);
+    const first = g.current;
+    if (!first) { failures.push(oid + ':no-opening-event'); continue; }
+    if (!String(first.id).startsWith('open_')) { failures.push(oid + ':not-a-beat'); continue; }
+    if (!first.choices || first.choices.length < 2) { failures.push(oid + ':too-few-choices'); continue; }
+    g.choose(0);
+    if (String(g.current?.id || '').startsWith('open_')) failures.push(oid + ':beat-repeated');
+  }
+  assert.equal(failures.length, 0, 'opening beats fire once per run: ' + failures.slice(0, 3).join(', '));
+  assert.equal(covered.size, ORIGINS.length, 'every origin was exercised');
+  for (const o of ORIGINS) {
+    assert(OPENING_BEATS[o.id], `origin ${o.id} has an authored opening beat`);
+  }
+  console.log('guided first year: every origin opens on its own decision');
 }

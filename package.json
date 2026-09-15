@@ -8,5 +8,8 @@
     "dev": "node server.js",
     "build": "echo 'static site — nothing to build'",
     "test": "node test/life-systems.test.js && node test/sim.test.js"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
   }
 }

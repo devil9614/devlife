@@ -48,5 +48,11 @@
 <body>
 <div id="app"></div>
 <script type="module" src="./src/ui/app.js"></script>
+<!-- Vercel Web Analytics. This site has no build step, so the npm package's
+     bundler entry point cannot be used; Vercel serves this script from the
+     deployment itself once Web Analytics is enabled for the project. It 404s
+     harmlessly in local dev and on a project where the feature is off. -->
+<script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};</script>
+<script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>

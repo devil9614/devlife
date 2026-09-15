@@ -965,6 +965,52 @@ function bindSheet(){
   app.querySelectorAll('[data-life]').forEach(b=>b.onclick=()=>onLifeAction(b.dataset.life));
 }
 
+/**
+ * Replace only the top-level children whose markup changed.
+ *
+ * The UI re-renders from scratch on every interaction, which is simple and was
+ * fine when the page was short. It is not fine now: assigning innerHTML drops
+ * every node, so the page visibly flashes and any scrolled panel jumps back to
+ * the top. Comparing each top-level child's outerHTML against the new markup
+ * keeps untouched sections — and their scroll positions — completely intact.
+ */
+function patchChildren(root, html, cls){
+  if(root.className!==cls) root.className=cls;
+  const tmp=document.createElement('div');
+  tmp.innerHTML=html;
+  const next=[...tmp.children];
+  const prev=[...root.children];
+
+  // Remember scroll offsets of anything scrollable before we touch the DOM.
+  const offsets=new Map();
+  for(const el of prev){
+    for(const s of [el,...el.querySelectorAll('*')]){
+      if(s.scrollTop>0) offsets.set(scrollKey(s), s.scrollTop);
+    }
+  }
+
+  for(let i=0;i<next.length;i++){
+    const a=prev[i], b=next[i];
+    if(!a){ root.append(b); continue; }
+    if(a.outerHTML===b.outerHTML) continue;   // untouched: leave the live node
+    a.replaceWith(b);
+  }
+  for(let i=next.length;i<prev.length;i++) prev[i].remove();
+
+  // Restore offsets onto whatever survived or replaced them.
+  for(const el of root.children){
+    for(const s of [el,...el.querySelectorAll('*')]){
+      const k=scrollKey(s);
+      if(offsets.has(k) && s.scrollTop===0) s.scrollTop=offsets.get(k);
+    }
+  }
+}
+
+/** Stable-enough identity for a scrollable node across a re-render. */
+function scrollKey(el){
+  return (el.id||'')+'|'+(el.className||'')+'|'+el.tagName;
+}
+
 function render(){
   if(screen==='start') return renderStart();
   if(screen==='shared') return renderShared(sharedData);
@@ -972,20 +1018,22 @@ function render(){
   autosave();
 
   const wide = window.matchMedia('(min-width:900px)').matches;
-  if(wide){
-    app.className='wide';
-    app.innerHTML=`
-      <div class="col col-left">${chronicleHtml()}</div>
+  const cls = wide ? 'wide' : '';
+  const html = wide
+    ? `<div class="col col-left">${chronicleHtml()}</div>
       <div class="col col-mid">${worldHtml()}${pulseHtml()}${frontierHtml()}${dockHtml()}</div>
       <div class="col col-right">
         <div class="desk-panel">${paneHtml('team')}</div>
         <div class="desk-panel">${paneHtml('model')}</div>
       </div>
-      ${sheetHtml()}`;
-  } else {
-    app.className='';
-    app.innerHTML=worldHtml()+pulseHtml()+frontierHtml()+chronicleHtml()+dockHtml()+sheetHtml();
-  }
+      ${sheetHtml()}`
+    : worldHtml()+pulseHtml()+frontierHtml()+chronicleHtml()+dockHtml()+sheetHtml();
+
+  // Writing app.innerHTML destroys every node, which flashes the page and
+  // resets the scroll of whatever the player was reading. Diff at the top
+  // level instead and replace only the children whose markup actually changed,
+  // preserving scroll on any survivor.
+  patchChildren(app, html, cls);
 
   const ageBtn=$('#age'); if(ageBtn) ageBtn.onclick=onAge;
   const hm=$('#hmenu'); if(hm) hm.onclick=()=>{ sheet={kind:'menu'}; render(); };

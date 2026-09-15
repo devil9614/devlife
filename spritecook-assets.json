@@ -1,0 +1,16 @@
+{
+  "assets": [
+    {
+      "asset_id": "eb388a72-9a6a-4307-9790-d42ee72283d0",
+      "sha12": "9be480983ded",
+      "label": "DEVLIFE femme sprite — copper bob",
+      "file": "public/assets/femme-copper.png"
+    },
+    {
+      "asset_id": "8a4987b6-d0fe-424c-aaaf-0b64334618d2",
+      "sha12": "962457f6fea1",
+      "label": "DEVLIFE femme sprite — dark pixie",
+      "file": "public/assets/femme-pixie.png"
+    }
+  ]
+}

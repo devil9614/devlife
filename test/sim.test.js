@@ -6,13 +6,16 @@ const sigs = new Set(); const eventsSeen = new Set();
 
 for (let i = 0; i < N; i++) {
   const g = new Game({ seed: 'run-' + i });
-  let guard = 0;
+  let guard = 0, activitiesThisYear = 0;
   while (!g.isOver && guard++ < 400) {
     // Players take activities too — exercise that path, since some events are
     // gated behind flags only activities can set.
-    if (g.state.actionsLeft > 0 && Math.random() < 0.55) {
+    // The live game allows unlimited activities between age-ups. Bound the
+    // random bot so it still exercises that path without choosing to remain
+    // in one year forever.
+    if (activitiesThisYear < 3 && Math.random() < 0.55) {
       const av = g.availableActivities();
-      if (av.length) { const a = av[Math.floor(Math.random() * av.length)]; g.doActivity(a.id); continue; }
+      if (av.length) { const a = av[Math.floor(Math.random() * av.length)]; g.doActivity(a.id); activitiesThisYear++; continue; }
     }
     if (g.current) {
       const ev = g.current; eventsSeen.add(ev.id);
@@ -21,6 +24,7 @@ for (let i = 0; i < N; i++) {
       const before = g.state.year;
       g.nextYear();
       if (g.state.year === before) { stalls++; break; }
+      activitiesThisYear = 0;
     }
   }
   if (guard >= 400) stalls++;

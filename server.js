@@ -13,6 +13,17 @@ const PORT = process.env.PORT || 5173;
 createServer(async (req, res) => {
   try {
     let p = decodeURIComponent(req.url.split('?')[0]);
+    const origin = `http${req.headers['x-forwarded-proto'] === 'https' ? 's' : ''}://${req.headers.host || 'localhost:' + PORT}`;
+    if (p === '/robots.txt') {
+      res.writeHead(200, { 'Content-Type':'text/plain; charset=utf-8' });
+      res.end(`User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`);
+      return;
+    }
+    if (p === '/sitemap.xml') {
+      res.writeHead(200, { 'Content-Type':'application/xml; charset=utf-8' });
+      res.end(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${origin}/</loc></url></urlset>`);
+      return;
+    }
     if (p === '/') p = '/index.html';
     const file = join(ROOT, normalize(p).replace(/^(\.\.[/\\])+/, ''));
     const body = await readFile(file);

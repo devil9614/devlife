@@ -3,16 +3,25 @@
 
 export const LIFE_CATEGORIES = [
   { id: 'career',   label: 'Career',   icon: '💼' },
-  { id: 'money',    label: 'Money',    icon: '💰' },
+  { id: 'money',    label: 'Assets',   icon: '🏎️' },
+  { id: 'bank',     label: 'Bank',     icon: '🏦' },
+  { id: 'markets',  label: 'Markets',  icon: '📈' },
   { id: 'social',   label: 'Social',   icon: '🍸' },
   { id: 'love',     label: 'Love',     icon: '❤️' },
+  { id: 'chaos',    label: 'Chaos',    icon: '⚠️' },
 ];
 
 export const LIFE_ACTIONS = [
 // ---------------- CAREER ----------------
 {
+  id: 'put_in_work', cat: 'career', label: 'Put in the work',
+  desc: 'No dice roll, just hours. Builds the standing a raise or promotion needs.',
+  requires: { hasJob: true },
+  handler: 'grind',
+},
+{
   id: 'ask_raise', cat: 'career', label: 'Ask for a raise',
-  desc: 'Walk in with numbers and a competing offer you may or may not have.',
+  desc: 'Walk in with numbers and a track record, not just nerve.',
   requires: { hasJob: true }, cooldown: 2,
   handler: 'raise',
 },
@@ -48,22 +57,37 @@ export const LIFE_ACTIONS = [
   handler: 'shop',
 },
 {
-  id: 'invest', cat: 'money', label: 'Call your broker',
+  id: 'invest', cat: 'markets', label: 'Call your broker',
   desc: 'Put money into the market and find out what happens.',
   requires: { minCash: 5000 },
   handler: 'invest',
 },
 {
-  id: 'sell_stock', cat: 'money', label: 'Sell a position',
+  id: 'sell_stock', cat: 'markets', label: 'Sell a position',
   desc: 'Take the gain, or cut the loss.',
   requires: { hasPortfolio: true },
   handler: 'sell',
 },
 {
-  id: 'pay_debt', cat: 'money', label: 'Pay down debt',
+  id: 'pay_debt', cat: 'bank', label: 'Pay down debt',
   desc: 'Unglamorous. Compounds in your favour.',
   requires: { hasDebt: true, minCash: 5000 },
   handler: 'paydebt',
+},
+{
+  id: 'bank_loan', cat: 'bank', label: 'Apply for a bank loan',
+  desc: 'Borrow against your future, at a price.',
+  handler: 'bankLoan', cooldown: 1,
+},
+{
+  id: 'buy_crypto', cat: 'markets', label: 'Buy crypto',
+  desc: 'A volatile position and a very loud group chat.',
+  requires: { minCash: 250 }, handler: 'buyCrypto',
+},
+{
+  id: 'sell_crypto', cat: 'markets', label: 'Cash out crypto',
+  desc: 'Turn conviction back into dollars.',
+  handler: 'sellCrypto',
 },
 
 // ---------------- SOCIAL ----------------
@@ -92,10 +116,10 @@ export const LIFE_ACTIONS = [
 
 // ---------------- LOVE ----------------
 {
-  id: 'date_apps', cat: 'love', label: 'Try dating',
-  desc: 'Apps, setups, and the friend who insists she knows someone.',
+  id: 'date_apps', cat: 'love', label: 'Open Signal dating',
+  desc: 'Browse age-compatible matches. Conversation comes before a date.',
   requires: { single: true },
-  handler: 'date',
+  handler: 'dateApps',
 },
 {
   id: 'flirt_cofounder', cat: 'love', label: 'Flirt with your co-founder',
@@ -104,15 +128,15 @@ export const LIFE_ACTIONS = [
   handler: 'flirtco',
 },
 {
-  id: 'get_serious', cat: 'love', label: 'Get serious',
-  desc: 'Move in, propose, decide this is the one.',
+  id: 'get_serious', cat: 'love', label: 'Get married',
+  desc: 'Make a promise, tell the family, and merge the calendars.',
   requires: { hasPartner: true }, cooldown: 3,
   handler: 'serious',
 },
 {
-  id: 'have_kid', cat: 'love', label: 'Have a child',
-  desc: 'Everything reorganises around this.',
-  requires: { hasPartner: true }, cooldown: 3,
+  id: 'have_kid', cat: 'love', label: 'Try for a child',
+  desc: 'Start a family. A baby arrives only after time passes.',
+  requires: { hasPartner: true, notPregnant: true }, cooldown: 1,
   handler: 'kid',
 },
 {
@@ -120,5 +144,17 @@ export const LIFE_ACTIONS = [
   desc: 'Better now than in three years.',
   requires: { hasPartner: true },
   handler: 'breakup',
+},
+
+// ---------------- CHAOS ----------------
+{
+  id: 'run_scam', cat: 'chaos', label: 'Run a shady growth scheme',
+  desc: 'Money can arrive before the consequences do.',
+  handler: 'scam', cooldown: 2,
+},
+{
+  id: 'commit_crime', cat: 'chaos', label: 'Take a criminal shortcut',
+  desc: 'Fictional, risky, and never a clean win.',
+  handler: 'crime', cooldown: 3,
 },
 ];

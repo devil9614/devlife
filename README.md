@@ -78,20 +78,18 @@ badly. That tension is the game.
 
 ## The interface
 
-Modelled on BitLife's actual shape, mobile-first:
+The UI is a colorful, mobile-first life game rather than a research dashboard:
 
-- **A life-event log** as the main screen — a chronological feed of what
-  happened, newest at the bottom, with stat changes shown inline.
-- **Stat bars** pinned above it, always visible.
-- **A big Age button** as the primary action. Press it, a year passes.
-- **Five bottom tabs** — Life, Do, Lab, Model, World.
-- **Events arrive as bottom sheets** you must answer before continuing.
-- **Activities** (the "Do" tab) are how you act rather than react: two
-  actions per year, in five categories.
+- **The life journal is the main screen**, with the newest consequences kept in view.
+- **A compact identity header** keeps age, job, net worth, relationships, and four vitals visible.
+- **A central Age button** advances the story; activities are unlimited between age-ups.
+- **Five game tabs** expose Story, Moves, Money, People, and your AI.
+- **Decisions have personality** — big moves, safe plays, and chaos are visually distinct.
+- **Career and personal systems** include jobs, founding a company, parties, romance, children,
+  enemies, stock trading, gifts, debt, and assets you can actually own.
 
-The layout is a fixed-height phone frame: the feed scrolls inside it, so the
-Age button and navigation never leave the screen. On desktop the same frame
-is centred rather than stretched.
+On desktop the same systems become a three-panel command center: your history on the left,
+the living world in the middle, and your people plus AI on the right.
 
 ## Structure
 

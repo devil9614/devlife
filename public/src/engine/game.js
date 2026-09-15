@@ -53,12 +53,15 @@ export class Game {
     // The life layer: money, career, relationships, possessions.
     this.state.life = initialLife(this.rng);
     this.state.life.jobIndex = this.rng.range(1, 3);
+    this.state.life.tenureStartYear = 0 - this.rng.range(0, 3);
     this.state.people = foundingTeam(this.rng, 0);
     this._rosterNotes = [];
 
     this.queue = [];
     this.yearNotes = [];
-    this.state.actionsLeft = 2;      // activities you may take per year
+    // BitLife-style pacing: time advances only when the player chooses to age.
+    // Voluntary activities are not constrained by an arbitrary turn budget.
+    this.state.actionsLeft = null;   // retained for backwards-compatible saves
     this.state.cooldowns = {};       // activityId -> year it becomes available
     this.state.debtLoad = 0;         // outstanding bridge loans; makes debt compound
     this.refillQueue();
@@ -187,43 +190,58 @@ export class Game {
       if (r.hasDebt && L.debt <= 0) return false;
       if (r.hasPortfolio && !Object.keys(L.portfolio).length) return false;
       if (r.hasPeople && !L.people.filter(p => !p.faded).length) return false;
-      if (r.single && L.people.some(p => p.kind === 'partner')) return false;
-      if (r.hasPartner && !L.people.some(p => p.kind === 'partner')) return false;
-      if (r.hasCofounder && !L.people.some(p => p.kind === 'cofounder')) return false;
+      if (r.single && L.people.some(p => p.kind === 'partner' || p.kind === 'spouse')) return false;
+      if (r.hasPartner && !L.people.some(p => p.kind === 'partner' || p.kind === 'spouse')) return false;
+      if (r.notPregnant && L.pregnancy) return false;
+      if (r.hasCofounder && !L.people.some(p => p.kind === 'cofounder' || p.cofounder)) return false;
       return true;
     });
   }
 
-  /** Perform a life action. Costs one action for the year. */
-  doLifeAction(id, opts = {}) {
-    if (this.state.dead || this.state.actionsLeft <= 0) return null;
-    const a = LIFE_ACTIONS.find(x => x.id === id);
-    if (!a) return null;
-    const fn = HANDLERS[a.handler];
+  /** Apply one life-layer result consistently, no matter where it came from. */
+  runLifeHandler(handler, opts = {}, title = 'Life') {
+    if (this.state.dead) return null;
+    const fn = HANDLERS[handler];
     if (!fn) return null;
     const res = fn(this.state, this.rng, opts);
     if (!res) return null;
-    this.state.actionsLeft -= 1;
-    if (a.cooldown) this.state.cooldowns[a.id] = this.state.year + a.cooldown;
-
-    // Life deltas may touch both life stats and lab stats.
     const deltas = {};
     for (const [k, v] of Object.entries(res.deltas || {})) {
+      if (!v) continue;
       if (k === 'happiness' || k === 'energy') {
         this.state.life[k] = Math.max(0, Math.min(100, this.state.life[k] + v));
         deltas[k] = v;
       } else if (k in this.state.stats) {
-        const before = this.state.stats[k];
-        const hi = k === 'capability' ? 260 : 100;
+        const before = this.state.stats[k], hi = k === 'capability' ? 260 : 100;
         this.state.stats[k] = Math.max(0, Math.min(hi, before + v));
         const d = this.state.stats[k] - before;
         if (d) deltas[k] = d;
       }
     }
-    this.state.log.push({ year: this.state.year, title: a.label, choice: 'life',
-      text: res.text, deltas, kind: 'life' });
+    this.state.log.push({ year:this.state.year, title, choice:'life', text:res.text, deltas, kind:'life' });
     this.checkEnd();
-    return { outcome: { text: res.text }, deltas };
+    return { ...res, outcome:{ text:res.text }, deltas };
+  }
+
+  interactWithPerson(personId, action) {
+    const p = this.state.life.people.find(x => x.id === personId);
+    return this.runLifeHandler('relationship', { personId, action }, p?.name || 'Relationship');
+  }
+
+  befriendCoworker(workerId) {
+    const worker = this.state.people.find(p => p.id === workerId);
+    return this.runLifeHandler('befriendCoworker', { worker }, worker?.name || 'Coworker');
+  }
+
+  /** Perform a life action. Activities are unlimited between age-ups. */
+  doLifeAction(id, opts = {}) {
+    if (this.state.dead) return null;
+    const a = LIFE_ACTIONS.find(x => x.id === id);
+    if (!a) return null;
+    const res = this.runLifeHandler(a.handler, opts, a.label);
+    if (!res) return null;
+    if (a.cooldown) this.state.cooldowns[a.id] = this.state.year + a.cooldown;
+    return res;
   }
 
   /** Roster changes produced by the last action, for the UI to surface. */
@@ -235,7 +253,7 @@ export class Game {
     this.yearNotes = advanceYear(this.state, this.rng);
     this.yearNotes.push(...tickPeople(this.state, this.rng));
     this.yearNotes.push(...tickLife(this.state, this.rng));
-    this.state.actionsLeft = 2;
+    this.state.actionsLeft = null;
     this.checkEnd();
     if (!this.state.dead) this.refillQueue();
     return this.yearNotes;
@@ -269,9 +287,9 @@ export class Game {
     return null;
   }
 
-  /** Perform an activity. Costs one action for the year. */
+  /** Perform an activity. Activities are unlimited between age-ups. */
   doActivity(id) {
-    if (this.state.dead || this.state.actionsLeft <= 0) return null;
+    if (this.state.dead) return null;
     const a = ACTIVITIES.find(x => x.id === id);
     if (!a || this.activityLocked(a)) return null;
 
@@ -297,7 +315,6 @@ export class Game {
     this.applyRoster(res.outcome);
     res.outcome = { ...res.outcome,
       text: pickText(res.outcome.textVariants || res.outcome.text, this.rng, this.world, this.state) };
-    this.state.actionsLeft -= 1;
     if (a.debtScaling) this.state.debtLoad = (this.state.debtLoad || 0) + 1;
     if (a.cooldown) this.state.cooldowns[a.id] = this.state.year + a.cooldown;
     this.state.log.push({

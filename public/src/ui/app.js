@@ -8,11 +8,13 @@ import { STAT_DEFS } from '../engine/state.js';
 import { ACTIVITY_CATEGORIES } from '../data/activities.js';
 import { ENDINGS } from '../data/index.js';
 import { activePeople, alumni, traitOf, roleOf, spriteStyle } from '../engine/people.js';
-import { jobOf, netWorth, fmtMoney, ASSETS, STOCKS } from '../engine/life.js';
+import { jobOf, netWorth, fmtMoney, ASSETS, ASSET_CATEGORIES, STOCKS, CRYPTO } from '../engine/life.js';
 import { LIFE_CATEGORIES, LIFE_ACTIONS } from '../data/life-activities.js';
 import { renderWorld, worldCaption, tierFor } from './world.js';
 import { shareUrl, readSharedFromLocation } from './share.js';
 import { saveGame, loadSave, clearSave, restoreGame } from '../engine/save.js';
+import { initAnalytics, track } from './analytics.js';
+import { celebrate } from './confetti.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -23,11 +25,12 @@ let screen = 'start';
 let sheet = null;
 let tab = 'life';
 let actCat = 'career';
+let assetCat = 'property';
 let feed = [];
 let sharedData = null;
 let draft = null;
 
-const RK = { friend:'Friend', partner:'Partner', ex:'Ex', fling:'Fling',
+const RK = { match:'Signal match', friend:'Friend', partner:'Partner', spouse:'Spouse', ex:'Ex', fling:'Fling',
   cofounder:'Co-founder', rival:'Rival', mentor:'Mentor', investor:'Investor' };
 
 const LAB_NAMES = ['Meridian Research','Cavendish Labs','Thousand Rivers','Quiet Systems',
@@ -40,7 +43,10 @@ const SYM = {
   act:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>',
   self:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>',
   team:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8.5" cy="8" r="3.2"/><circle cx="17" cy="9.5" r="2.6"/><path d="M2.5 20c0-3.6 2.7-5.8 6-5.8s6 2.2 6 5.8"/><path d="M15 14.6c3 .2 5.4 2.3 5.4 5.4"/></svg>',
+  money: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M15 14h3"/><path d="M8 3v3"/></svg>',
   lab:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="3" width="16" height="18"/><path d="M8 7h8M8 11h8M8 15h4"/><circle cx="16.5" cy="15.5" r="1.4" fill="currentColor" stroke="none"/></svg>',
+  job:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/><path d="M10 13v2h4v-2"/></svg>',
+  ai:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="7" y="7" width="10" height="10" rx="2"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></svg>',
   menu:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>',
 };
 
@@ -54,35 +60,44 @@ function rollDraft(){
 
 function renderStart(){
   const d = draft || rollDraft();
-  const s = d.game.state, o = s.origin, c = s.complication;
+  const s = d.game.state, o = s.origin, c = s.complication, L=s.life, job=jobOf(L);
   app.className = '';
   app.innerHTML = `
     <div class="title-screen">
       <div class="title-mark">
-        <h1>DEV<em>LIFE</em></h1>
-        <div class="sub">a future history, one year at a time</div>
+        <div class="new-game">NEW LIFE · NEW MESS</div>
+        <h1>DEV<span>LIFE</span></h1>
+        <div class="sub">Build the AI. Build the empire. Try to keep a life.</div>
       </div>
 
       <div class="dossier-card">
-        <div class="dc-plate">${renderWorld(d.game.state,'slice')}</div>
+        <div class="dc-plate start-profile-art">
+          <div class="code-rain">01&nbsp;10&nbsp;01&nbsp;11&nbsp;00<br/>const future = new AI();<br/>future.train();</div>
+          <div class="portrait hero"><i class="sprite" style="${spriteStyle({sprite:s.founderSprite},2)}"></i></div>
+          <div class="start-badge">YOUR NEW LIFE</div>
+        </div>
         <div class="dc-body">
           <div class="dc-top">
             <div class="portrait"><i class="sprite" style="${spriteStyle({sprite:s.founderSprite},1)}"></i></div>
             <div style="min-width:0;flex:1">
               <div class="dc-name" id="labname" contenteditable="true" spellcheck="false">${esc(s.name)}</div>
-              <div class="dc-meta">${esc(o.label)}${c.id!=='none'?' · '+esc(c.label):''} · age ${s.age}</div>
+              <div class="dc-meta">${esc(job.title)} · age ${s.age}</div>
             </div>
-            <button class="dc-reroll" id="reroll" title="Another life">&#8635;</button>
+            <button class="dc-reroll" id="reroll" title="Roll another life">🎲</button>
           </div>
+          <div class="origin-tag">${esc(o.label)}${c.id!=='none'?' · '+esc(c.label):''}</div>
           <p class="dc-origin">${esc(o.opener)}${c.opener?' '+esc(c.opener):''}</p>
           <div class="dc-stats">
-            ${[['capability','Capability'],['funding','Funding'],['reputation','Standing'],['talent','Talent']]
-              .map(([k,l])=>`<div class="dc-stat"><span>${l}</span><b>${Math.round(s.stats[k])}</b></div>`).join('')}
+            <div class="dc-stat"><span>💵 Cash</span><b>${fmtMoney(L.cash)}</b></div>
+            <div class="dc-stat ${L.debt?'bad':''}"><span>💳 Debt</span><b>${fmtMoney(L.debt)}</b></div>
+            <div class="dc-stat"><span>💼 Salary</span><b>${fmtMoney(job.salary)}</b></div>
+            <div class="dc-stat"><span>🤖 First AI</span><b>${esc(s.modelName)}</b></div>
           </div>
         </div>
       </div>
 
-      <button class="btn" id="go">Begin</button>
+      <div class="starter-goals"><span>💼 get hired</span><span>🚀 found a company</span><span>❤️ find somebody</span><span>📈 get rich</span></div>
+      <button class="btn" id="go">Start this life <b>→</b></button>
       <details class="adv">
         <summary>Advanced</summary>
         <div class="adv-in">
@@ -119,47 +134,34 @@ function begin(){
       text:`You found ${game.state.name}. The first model is called ${game.state.modelName}.` },
   ];
   screen='play'; sheet=null; tab='life';
+  track('game_started',{age:game.state.age,difficulty:game.state.difficulty||diff});
   snapshotRoster();
   render();
 }
 
 // ---------------- world layer ----------------
 function worldHtml(){
-  const s = game.state, cap = worldCaption(s);
-  const wide = window.matchMedia('(min-width:900px)').matches;
-  return `<div class="world">
-    ${renderWorld(s, wide ? 'slice' : 'meet')}
-    <div class="world-year"><b>${s.year}</b><span>YEAR · AGE ${s.age}</span></div>
-    <div class="world-plate">
-      <div class="wp-name">${esc(cap.name)}</div>
-      <div class="wp-note">${esc(cap.note)}</div>
+  const s = game.state, L=s.life, job=jobOf(L);
+  const partner=L.people.find(p=>p.kind==='partner'||p.kind==='spouse');
+  return `<div class="world profile-head">
+    <div class="profile-bar"><div class="brand-chip">DEV<span>LIFE</span></div>
+      <button class="world-menu" id="hmenu" title="Menu">${SYM.menu}</button></div>
+    <div class="profile-main">
+      <div class="portrait player"><i class="sprite" style="${spriteStyle({sprite:s.founderSprite},2)}"></i></div>
+      <div class="profile-copy"><div class="profile-name">${esc(s.name)}</div>
+        <div class="profile-age">Age ${s.age} · ${esc(job.title)}</div>
+        <div class="profile-life">${partner?'❤️ '+esc(partner.name):'💔 Single'} &nbsp;·&nbsp; ${L.pregnancy?'🤍 Baby due next year':L.kids.length?'👶 '+L.kids.length+' kid'+(L.kids.length===1?'':'s'):'No kids'}</div>
+      </div>
+      <div class="cash-box"><span>NET WORTH</span><b>${fmtMoney(netWorth(L))}</b></div>
     </div>
-    <button class="world-menu" id="hmenu" title="Pause">${SYM.menu}</button>
   </div>`;
 }
 
 // ---------------- life pulse ----------------
 function pulseHtml(){
   const s = game.state, st = s.stats, L = s.life;
-  const nw = netWorth(L);
-  const money = L.debt > L.cash ? { k:'Debt', v:fmtMoney(L.debt), danger:true }
-                                : { k:'Worth', v:fmtMoney(nw), danger:nw<0 };
-  const meters = [
-    ['Happy', L.happiness, 'human'],
-    ['Health', st.health, 'vital'],
-    ['Capable', Math.min(100,(st.capability/260)*100), 'tech'],
-    ['Control', st.containment, st.containment<35?'risk':'vital'],
-  ];
-  return `<div class="pulse">
-    <div class="pulse-item">
-      <div class="pulse-k">${money.k}</div>
-      <div class="pulse-v money ${money.danger?'danger':''}">${money.v}</div>
-    </div>
-    ${meters.map(([k,v,cls])=>`<div class="pulse-item">
-      <div class="pulse-k">${k}</div>
-      <div class="tick ${cls}"><i style="width:${Math.max(0,Math.min(100,v))}%"></i></div>
-    </div>`).join('')}
-  </div>`;
+  const vitals=[['Happiness',L.happiness,'happy'],['Health',st.health,'health'],['Reputation',st.reputation,'reputation'],['AI safety',st.containment,st.containment<35?'danger':'safety']];
+  return `<div class="pulse">${vitals.map(([k,v,cls])=>`<div class="vital"><div><span>${k}</span><b>${Math.round(v)}</b></div><div class="vital-track"><i class="${cls}" style="width:${Math.max(2,Math.min(100,v))}%"></i></div></div>`).join('')}</div>`;
 }
 
 // ---------------- chronicle ----------------
@@ -191,18 +193,16 @@ function chronicleHtml(){
 // ---------------- dock ----------------
 function dockHtml(){
   const pending = !!game.current;
-  const items = [['life','Life',SYM.life],['activities','Act',SYM.act],
-    ['me','Self',SYM.self],['team','Team',SYM.team],['model','Lab',SYM.lab]];
   return `<div class="dock">
-    <div class="dock-age">
-      <div class="acts-left"><b>${game.state.actionsLeft}</b><span>acts</span></div>
-      <button class="age-btn ${pending?'pending':''}" id="age">
-        ${pending?'Continue':'Let the year pass'}
-        <small>${pending?'a decision is waiting':'+1 year'}</small>
-      </button>
+    <div class="tabs bit-tabs">
+      <button data-nav="life" class="${tab==='life'?'on':''}">${SYM.life}<span>Life</span></button>
+      <button data-nav="job" class="${tab==='job'?'on':''}">${SYM.job}<span>Job</span></button>
+      <button data-nav="model" class="${tab==='model'?'on':''}">${SYM.ai}<span>AI</span></button>
+      <button class="age-btn ${pending?'pending':''}" id="age"><b>${pending?'!':'+'}</b><span>${pending?'Decision':'Age'}</span></button>
+      <button data-nav="me" class="${tab==='me'?'on':''}">${SYM.money}<span>Money</span></button>
+      <button data-nav="team" class="${tab==='team'?'on':''}">${SYM.team}<span>Relations</span></button>
+      <button data-nav="activities" data-open-cat="social" class="all-actions">${SYM.act}<span>Activities</span></button>
     </div>
-    <div class="tabs">${items.map(([id,l,ic])=>
-      `<button data-nav="${id}" class="${tab===id?'on':''}">${ic}${l}</button>`).join('')}</div>
   </div>`;
 }
 
@@ -214,6 +214,66 @@ function choiceTone(label){
   if (/leak|hide|ignore|override|quietly|secret|sabotage|cover|bypass|patch that|nothing/.test(s)) return 'risky';
   if (/publish|open|ship|launch|grant|approve|accept|sell|take|sign|full/.test(s)) return 'bold';
   return '';
+}
+
+function choiceHint(label){
+  const tone=choiceTone(label);
+  return tone==='risky'?'CHAOS':tone==='bold'?'BIG MOVE':tone==='careful'?'SAFE PLAY':'YOUR CALL';
+}
+
+function personSheetHtml(personId){
+  const p=game.state.life.people.find(x=>x.id===personId);
+  if(!p) return `<div class="panel-bd"><div class="empty">This relationship has moved on.</div></div>`;
+  const L=game.state.life, yearsKnown=Math.max(0,game.state.year-(p.metYear??game.state.year));
+  const gap=Math.abs((p.age??game.state.age)-game.state.age);
+  const dateReady=(p.conversations||0)>=3&&game.state.year>(p.metYear??game.state.year)&&p.lastDateYear!==game.state.year;
+  const hearts=Math.max(1,Math.ceil(p.closeness/20));
+  const acts=[
+    {id:'talk', label:'Have a real conversation', desc:(p.conversations||0)>=3?'Keep the conversation alive between milestones.':`${3-(p.conversations||0)} more conversation${(p.conversations||0)===2?'':'s'} before asking for a date.`, tone:'careful'},
+    {id:'spend', label:'Spend time together', desc:'Put the phone away for an evening.', tone:'careful'},
+    {id:'gift', label:'Send a thoughtful gift', desc:'Costs cash. Builds closeness.', tone:'bold'},
+  ];
+  if(['match','friend','fling','cofounder'].includes(p.kind)) acts.push({id:'date',label:'Ask them on a date',desc:dateReady?(p.dates?`Plan date ${p.dates+1}. Relationships take more than one good night.`:'Make an actual plan, off the app.'):(game.state.year<=(p.metYear??game.state.year)?'You met this year. Let time pass first.':'Have three real conversations first.'),tone:'risky'});
+  if(['partner','spouse','fling'].includes(p.kind)) {
+    acts.push({id:'intimacy_protected',label:'Spend a protected night',desc:'Adult, consensual intimacy without a pregnancy risk.',tone:'careful'});
+    acts.push({id:'intimacy_unprotected',label:'Take a chance',desc:'Adult, consensual intimacy without protection. A pregnancy can change next year.',tone:'risky'});
+  }
+  if(p.kind==='partner') acts.push({id:'propose',label:'Propose marriage',desc:p.closeness<55?'Build the relationship a little more first.':'Make a promise in public.',tone:'bold'});
+  if(['partner','spouse'].includes(p.kind)) acts.push({id:'try_child',label:'Try for a child',desc:L.pregnancy?'A baby is already due next year.':'Start a family. Birth happens after an age-up.',tone:'bold'});
+  if(p.kind==='partner'||p.kind==='spouse') acts.push({id:'breakup',label:p.kind==='spouse'?'File for divorce':'End the relationship',desc:p.kind==='spouse'?'This will change both of your lives.':'Hard now, harder later.',tone:'risky'});
+  const title=RK[p.kind]||p.kind;
+  return `<div class="person-hero"><div class="portrait full"><i class="sprite" style="${spriteStyle(p,2)}"></i></div><div><span>${esc(title)}${p.cofounder?' · CO-FOUNDER':''}</span><h2>${esc(p.name)}</h2><div class="heartline">${'♥'.repeat(hearts)}<i>${'♥'.repeat(5-hearts)}</i></div></div></div>
+    <div class="panel-hd"><div class="p-k">Age ${p.age??'?'} · ${gap} year age gap · ${yearsKnown?'known '+yearsKnown+' year'+(yearsKnown===1?'':'s'):'met this year'}</div><h2>What do you do?</h2></div>
+    <div class="panel-bd"><div class="relationship-meter"><span>CONVERSATIONS <b>${p.conversations||0}</b></span><span>DATES <b>${p.dates||0}</b></span><span>CLOSENESS <b>${Math.round(p.closeness)}</b></span></div>${acts.map(a=>`<button class="choice ${a.tone}" data-rel="${a.id}" data-person="${p.id}"><span class="choice-tag">RELATIONSHIP</span><span class="c-t">${esc(a.label)}</span><span class="c-d">${esc(a.desc)}</span><span class="choice-arrow">→</span></button>`).join('')}</div>`;
+}
+
+function jobSheetHtml(){
+  const L=game.state.life, job=jobOf(L);
+  const tenure=Math.max(0,game.state.year-(L.tenureStartYear??game.state.year));
+  const perf=Math.round(L.performance??55);
+  const rungs=Math.max(1,Math.ceil(perf/20));
+  const isFounder=L.equity>0;
+  const acts=[];
+  if(L.jobIndex>0) acts.push({id:'put_in_work',label:'Put in the work',desc:'No dice roll, just hours toward the next review.',tone:'careful'});
+  if(L.jobIndex>0) acts.push({id:'ask_raise',label:'Ask for a raise',desc:tenure<1?'You just started here. Give it a year.':perf<40?'Standing is too thin for that conversation yet.':'Walk in with a track record.',tone:'bold'});
+  acts.push({id:'job_hunt',label:'Interview elsewhere',desc:'See what the market thinks you are worth.',tone:'risky'});
+  if(!isFounder&&L.jobIndex>=3) acts.push({id:'quit_found',label:'Quit and found your own lab',desc:'Trade a salary for equity and the right to decide things.',tone:'bold'});
+  if(isFounder) acts.push({id:'poach_rival',label:'Poach a rival\'s star',desc:'Expensive, effective, and they will remember it.',tone:'risky'});
+  if(isFounder) acts.push({id:'sabotage',label:'Leak a rival\'s roadmap',desc:'You have the document. Using it is a choice about who you are.',tone:'risky'});
+  return `<div class="person-hero job-hero"><div class="portrait full job-portrait"><span>${SYM.job}</span></div><div><span>${esc(L.employer||game.state.name)}${isFounder?' · FOUNDER':''}</span><h2>${esc(job.title)}</h2><div class="heartline">${'●'.repeat(rungs)}<i>${'●'.repeat(5-rungs)}</i></div></div></div>
+    <div class="panel-hd"><div class="p-k">${tenure===0?'Started this year':tenure+' year'+(tenure===1?'':'s')+' in the seat'} · ${fmtMoney(job.salary)}/yr</div><h2>Your career</h2></div>
+    <div class="panel-bd"><div class="relationship-meter career-meter"><span>TENURE <b>${tenure}</b></span><span>STANDING <b>${perf}</b></span><span>${isFounder?'EQUITY <b>'+(L.equity*100).toFixed(1)+'%</b>':'SALARY <b>'+fmtMoney(job.salary)+'</b>'}</span></div>${acts.map(a=>`<button class="choice ${a.tone}" data-life="${a.id}"><span class="choice-tag">CAREER</span><span class="c-t">${esc(a.label)}</span><span class="c-d">${esc(a.desc)}</span><span class="choice-arrow">→</span></button>`).join('')}
+    <button class="choice" data-nav="activities" data-open-cat="career"><span class="c-t">All career moves</span><span class="choice-arrow">→</span></button></div>`;
+}
+
+function coworkerSheetHtml(workerId){
+  const p=game.state.people.find(x=>x.id===workerId);
+  if(!p) return `<div class="panel-bd"><div class="empty">They no longer work here.</div></div>`;
+  const known=game.state.life.people.find(x=>x.name===p.name);
+  const trait=traitOf(p), role=roleOf(p);
+  return `<div class="person-hero"><div class="portrait full"><i class="sprite" style="${spriteStyle(p,2)}"></i></div><div><span>${esc(role.label)} · COWORKER</span><h2>${esc(p.name)}</h2><small>★ ${p.skill>=75?'Elite':p.skill>=50?'Strong':'Learning'} · ${esc(trait.label)}</small></div></div>
+    <div class="panel-hd"><div class="p-k">Joined ${p.joinedYear===game.state.year?'this year':'year '+p.joinedYear}</div><h2>Outside work</h2></div>
+    <div class="panel-bd">${known?`<button class="choice bold" data-open-person="${known.id}"><span class="c-t">Open relationship</span><span class="c-d">${esc(p.name)} is already a ${esc(RK[known.kind]||known.kind)} in your life.</span><span class="choice-arrow">→</span></button>`:`<button class="choice bold" data-befriend="${p.id}"><span class="choice-tag">MAKE A FRIEND</span><span class="c-t">Ask them for coffee</span><span class="c-d">Turn a coworker into somebody who calls.</span><span class="choice-arrow">→</span></button>`}</div>`;
 }
 
 function sheetHtml(){
@@ -229,7 +289,7 @@ function sheetHtml(){
       <h2>${esc(ev.title)}</h2></div>
       <div class="ch-bd"><p>${esc(ev.text)}</p>
       ${ev.choices.map((c,i)=>`<button class="choice ${choiceTone(c.label)}" data-ch="${i}">
-        <span class="c-t">${esc(c.label)}</span></button>`).join('')}</div>`;
+        <span class="choice-tag">${choiceHint(c.label)}</span><span class="c-t">${esc(c.label)}</span><span class="choice-arrow">→</span></button>`).join('')}</div>`;
   }
 
   if(sheet.kind==='outcome'){
@@ -238,34 +298,75 @@ function sheetHtml(){
     inner=`<div class="ch-hd"><div class="ch-k">${esc(sheet.title||'What happened')}</div></div>
       <div class="ch-bd"><p style="color:var(--ivory)">${esc(sheet.text)}</p>
       ${marks?`<div class="marks" style="margin-bottom:20px">${marks}</div>`:''}
+      ${sheet.finance?`<button class="btn ghost" data-finance="${esc(sheet.finance.assetId)}">Ask ${esc(game.state.life.bank?.name||'the bank')} to finance it</button>`:''}
       <button class="btn" id="ok">Go on</button></div>`;
   }
 
   if(sheet.kind==='activities'){
-    const none=game.state.actionsLeft<=0;
     const isLife=LIFE_CATEGORIES.some(c=>c.id===actCat);
     const list=isLife?game.availableLifeActions().filter(a=>a.cat===actCat)
                      :game.availableActivities().filter(a=>a.cat===actCat);
     const cats=[...LIFE_CATEGORIES,...ACTIVITY_CATEGORIES];
-    inner=`<div class="panel-hd"><div class="p-k">${game.state.actionsLeft} action${game.state.actionsLeft===1?'':'s'} remaining</div>
-      <h2>What do you do?</h2></div>
+    inner=`<div class="panel-hd"><div class="p-k">Do as much as you want before aging up</div>
+      <h2>Activities</h2></div>
       <div class="cats">${cats.map(c=>
-        `<button data-cat="${c.id}" class="${actCat===c.id?'on':''}">${esc(c.label)}</button>`).join('')}</div>
+        `<button data-cat="${c.id}" class="${actCat===c.id?'on':''}">${c.icon||'⚡'} ${esc(c.label)}</button>`).join('')}</div>
       <div class="panel-bd">${list.length?list.map(a=>
-        `<button class="choice ${none?'locked':''} ${choiceTone(a.label)}" data-${isLife?'life':'act'}="${a.id}">
-          <span class="c-t">${esc(a.label)}</span><span class="c-d">${esc(a.desc)}</span></button>`).join('')
-        :`<div class="empty">Nothing here yet.</div>`}
-        ${none?`<div class="empty">The year is spent. Let it pass.</div>`:''}</div>`;
+        `<button class="choice ${choiceTone(a.label)}" data-${isLife?'life':'act'}="${a.id}">
+          <span class="choice-tag">${choiceHint(a.label)}</span><span class="c-t">${esc(a.label)}</span><span class="c-d">${esc(a.desc)}</span><span class="choice-arrow">→</span></button>`).join('')
+        :`<div class="empty">Nothing here yet.</div>`}</div>`;
+  }
+
+  if(sheet.kind==='dating'){
+    const L=game.state.life;
+    const matches=L.people.filter(p=>p.kind==='match'&&!p.faded);
+    inner=`<div class="dating-hero"><span>◌</span><div><small>SIGNAL · PEOPLE AROUND YOUR AGE</small><h2>Dating, slowly</h2></div></div>
+      <div class="panel-bd"><p class="asset-desc">A profile is an introduction, not a relationship. Start a conversation, let a year pass, then see where an actual date goes.</p>
+      ${matches.length?matches.map(p=>`<button class="dating-profile" data-open-person="${p.id}">
+        <div class="portrait tall"><i class="sprite" style="${spriteStyle(p,1)}"></i></div><div><b>${esc(p.name)}, ${p.age}</b><small>${esc(p.note||'Signal match')} · ${Math.abs(p.age-game.state.age)} year age gap</small><em>${p.conversations||0} conversations · ${p.dates||0} dates</em></div><i>→</i></button>`).join('')
+        :`<div class="empty">No live matches. Come back after time passes.</div>`}</div>`;
   }
 
   if(sheet.kind==='shop'){
     const L=game.state.life;
     inner=`<div class="panel-hd"><div class="p-k">${fmtMoney(L.cash)} on hand</div><h2>Acquisitions</h2></div>
-      <div class="panel-bd">${ASSETS.map(a=>{
+      <div class="asset-cats">${ASSET_CATEGORIES.map(c=>`<button data-asset-cat="${c.id}" class="${assetCat===c.id?'on':''}"><b>${c.icon}</b><span>${esc(c.label)}</span></button>`).join('')}</div>
+      <div class="panel-bd asset-grid">${ASSETS.filter(a=>a.cat===assetCat).map(a=>{
         const owned=L.owns.some(o=>o.assetId===a.id), afford=L.cash>=a.price;
-        return `<button class="choice ${(!afford||owned)?'locked':''}" data-buy="${a.id}">
-          <span class="c-t">${esc(a.name)}</span>
-          <span class="c-d">${owned?'already yours':fmtMoney(a.price)}</span></button>`;}).join('')}</div>`;
+        return `<button class="asset-tile ${owned?'owned':''}" data-asset-detail="${a.id}">
+          <span class="asset-visual v-${esc(a.visual)}">${a.icon}</span><span class="asset-copy"><b>${esc(a.name)}</b>
+          <small>${owned?'Yours · '+fmtMoney(L.owns.find(o=>o.assetId===a.id)?.value||a.price):(afford?'Available':'Finance available')} · ${fmtMoney(a.price)}</small></span><i>→</i></button>`;}).join('')}</div>`;
+  }
+
+  if(sheet.kind==='asset-detail'){
+    const L=game.state.life, a=ASSETS.find(x=>x.id===sheet.assetId), owned=L.owns.some(o=>o.assetId===a?.id);
+    if(!a) { sheet={kind:'shop'}; return sheetHtml(); }
+    const short=Math.max(0,a.price-L.cash), limit=Math.round(((L.bank?.creditScore||680)-470)*2600+Math.max(0,jobOf(L).salary||L.salary)*.7-L.debt*.25);
+    inner=`<div class="asset-hero v-${esc(a.visual)}"><span>${a.icon}</span><div><small>${esc(a.cat)}</small><b>${esc(a.name)}</b></div></div>
+      <div class="panel-hd"><div class="p-k">${owned?'In your collection':fmtMoney(a.price)}</div><h2>${esc(a.name)}</h2></div>
+      <div class="panel-bd"><p class="asset-desc">${esc(a.desc)}</p>
+        <div class="asset-facts"><span>VALUE <b>${fmtMoney(owned?(L.owns.find(o=>o.assetId===a.id)?.value||a.price):a.price)}</b></span><span>JOY <b>+${a.joy}</b></span><span>YOU HAVE <b>${fmtMoney(L.cash)}</b></span></div>
+        ${owned?`<button class="btn ghost" data-share-asset="${a.id}">Make a share card</button>`:
+          `<button class="btn" data-buy="${a.id}">${L.cash>=a.price?'Buy it for '+fmtMoney(a.price):'Try to buy · '+fmtMoney(short)+' short'}</button>
+           ${short>0?`<p class="finance-note">${esc(L.bank?.name||'Your bank')} could finance up to ${fmtMoney(Math.max(0,limit))}. Buying will show the real offer.</p>`:''}`}
+      </div>`;
+  }
+
+  if(sheet.kind==='asset-share'){
+    const a=ASSETS.find(x=>x.id===sheet.assetId), L=game.state.life;
+    if(!a) { sheet={kind:'shop'}; return sheetHtml(); }
+    inner=`<div class="flex-card v-${esc(a.visual)}"><div class="flex-top"><span>DEV<span>LIFE</span> · YEAR ${game.state.year}</span><b>NEW ACQUISITION</b></div><div class="flex-thing">${a.icon}</div><h2>${esc(a.name)}</h2><p>${esc(game.state.name)} just added it to the collection.</p><div class="flex-stats"><span>NET WORTH <b>${fmtMoney(netWorth(L))}</b></span><span>AGE <b>${game.state.age}</b></span><span>JOY <b>+${a.joy}</b></span></div></div>
+      <div class="panel-bd"><p class="asset-desc">Made for a screenshot, a flex, or a post.</p><button class="btn" data-x-share="${a.id}">Share to X</button><button class="btn ghost" data-copy-flex="${a.id}" style="margin-top:9px">Copy the caption</button></div>`;
+  }
+
+  if(sheet.kind==='bank'){
+    const L=game.state.life, bank=L.bank||{}, limit=Math.max(10000,Math.round(((bank.creditScore||680)-470)*2600+Math.max(0,jobOf(L).salary||L.salary)*.7-L.debt*.25));
+    const offers=[10000,50000,150000].filter(n=>n<=limit); if(!offers.length) offers.push(Math.max(5000,Math.round(limit)));
+    inner=`<div class="bank-card"><span>YOUR BANK</span><b>${esc(bank.name||'Perimeter Bank')}</b><div><i>Credit score</i><strong>${Math.round(bank.creditScore||680)}</strong></div></div>
+      <div class="panel-hd"><div class="p-k">Available credit ${fmtMoney(limit)}</div><h2>Borrow carefully</h2></div>
+      <div class="panel-bd"><p class="asset-desc">Loans fund a move today and add to your yearly payment. Credit improves when you repay.</p>
+      ${offers.map(n=>`<button class="choice bold" data-loan="${n}"><span class="c-t">Borrow ${fmtMoney(n)}</span><span class="c-d">Personal credit · rate set by your score</span><span class="choice-arrow">→</span></button>`).join('')}
+      ${bank.loans?.length?`<div class="sec-rule"><b>Open loans</b><i></i></div><div class="ledger">${bank.loans.map(x=>`<div class="ledger-row"><span class="k">${esc(x.purpose)}</span><span class="v neg">${fmtMoney(x.principal)}</span></div>`).join('')}</div>`:''}</div>`;
   }
 
   if(sheet.kind==='invest'){
@@ -290,10 +391,35 @@ function sheetHtml(){
         :`<div class="empty">You hold nothing.</div>`}</div>`;
   }
 
+  if(sheet.kind==='crypto'){
+    const L=game.state.life, amount=Math.max(250,Math.round(L.cash*.15));
+    inner=`<div class="panel-hd"><div class="p-k">Placing ${fmtMoney(amount)} from cash</div><h2>Crypto exchange</h2></div><div class="panel-bd">${CRYPTO.map(c=>`<button class="choice risky" data-crypto="${c.id}"><span class="choice-tag">${esc(c.ticker)} · HIGH VOLATILITY</span><span class="c-t">${c.icon} ${esc(c.name)}</span><span class="c-d">The move can be enormous in either direction.</span><span class="choice-arrow">→</span></button>`).join('')}</div>`;
+  }
+
+  if(sheet.kind==='markets'){
+    const L=game.state.life, stockValue=Object.values(L.portfolio).reduce((sum,h)=>sum+h.shares*(h.price??h.basis),0), cryptoValue=Object.values(L.crypto||{}).reduce((sum,h)=>sum+h.units*(h.price??h.basis),0);
+    inner=`<div class="panel-hd"><div class="p-k">${fmtMoney(L.cash)} investable cash</div><h2>Markets</h2></div><div class="panel-bd">
+      <button class="market-door stock" data-market-open="invest"><span>📈</span><div><b>Stock market</b><small>${fmtMoney(stockValue)} invested · funds, equities, pre-IPO bets</small></div><i>→</i></button>
+      <button class="market-door crypto" data-market-open="crypto"><span>₿</span><div><b>Crypto exchange</b><small>${fmtMoney(cryptoValue)} in coins · extreme volatility</small></div><i>→</i></button>
+      ${stockValue?`<button class="choice" data-market-open="sell"><span class="c-t">Sell stock positions</span><span class="choice-arrow">→</span></button>`:''}
+      ${cryptoValue?`<button class="choice risky" data-market-open="crypto-sell"><span class="c-t">Cash out crypto</span><span class="choice-arrow">→</span></button>`:''}
+    </div>`;
+  }
+
+  if(sheet.kind==='crypto-sell'){
+    const held=Object.entries(game.state.life.crypto||{});
+    inner=`<div class="panel-hd"><div class="p-k">Your coin positions</div><h2>Cash out crypto</h2></div><div class="panel-bd">${held.length?held.map(([id,h])=>{ const c=CRYPTO.find(x=>x.id===id), value=Math.round(h.units*(h.price??h.basis)); return `<button class="choice risky" data-crypto-sell="${id}"><span class="c-t">${c?.icon||'◈'} ${esc(c?.name||id)}</span><span class="c-d">${fmtMoney(value)} current value</span><span class="choice-arrow">→</span></button>`; }).join(''):`<div class="empty">No coins yet. You can buy them in Markets.</div>`}</div>`;
+  }
+
+  if(sheet.kind==='job') inner=jobSheetHtml();
+  if(sheet.kind==='person') inner=personSheetHtml(sheet.personId);
+  if(sheet.kind==='coworker') inner=coworkerSheetHtml(sheet.workerId);
+
   if(sheet.kind==='pane') inner=paneHtml(sheet.pane);
 
   if(sheet.kind==='menu'){
-    inner=`<div class="panel-hd"><div class="p-k">Year ${game.state.year} · saved automatically</div><h2>Pause</h2></div>
+    const saved=game.state.life.bank?.lastSavedAt ? new Date(game.state.life.bank.lastSavedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : 'now';
+    inner=`<div class="panel-hd"><div class="p-k">Year ${game.state.year} · saved on this device at ${esc(saved)}</div><h2>Pause</h2></div>
       <div class="panel-bd">
         <p style="font-family:var(--serif);color:var(--ivory-3);font-size:14px;margin:0 0 16px">
           This life keeps itself. You can close the tab and return to it.</p>
@@ -324,24 +450,26 @@ function paneHtml(which){
 
   if(which==='me'){
     const job=jobOf(L), alive=L.people.filter(p=>!p.faded);
-    const pcard=p=>`<div class="dossier">
-      <div class="portrait"><i class="sprite" style="${spriteStyle(p,1)}"></i></div>
+    const pcard=p=>`<button class="dossier dossier-button" data-open-person="${p.id}">
+      <div class="portrait tall"><i class="sprite" style="${spriteStyle(p,1)}"></i></div>
       <div class="d-body">
         <div class="d-name">${esc(p.name)}</div>
         <div class="d-role">${esc(RK[p.kind]||p.kind)}${p.serious?' · serious':''}</div>
-        <div class="d-meters"><div class="d-meter"><span>Closeness</span>
-          <div class="tick human"><i style="width:${p.closeness}%"></i></div></div></div>
-      </div></div>`;
+        <div class="heartline" title="Closeness ${p.closeness}">${'♥'.repeat(Math.max(1,Math.ceil(p.closeness/20)))}<i>${'♥'.repeat(Math.max(0,5-Math.ceil(p.closeness/20)))}</i></div>
+      </div></button>`;
     return `<div class="panel-hd"><div class="p-k">${fmtMoney(netWorth(L))} · ${esc(job.title)}</div><h2>Yourself</h2></div>
       <div class="panel-bd">
         <div class="ledger">
           ${row('Employer', esc(L.employer||s.name))}
           ${row('Salary', fmtMoney(job.salary))}
           ${row('Cash', fmtMoney(L.cash))}
+          ${row('Bank', esc(L.bank?.name||'Perimeter Bank'))}
+          ${row('Credit score', Math.round(L.bank?.creditScore||680))}
           ${L.debt>0?row('Debt', fmtMoney(L.debt), true):''}
           ${L.equity>0?row('Equity',(L.equity*100).toFixed(1)+'%'):''}
           ${row('Net worth', fmtMoney(netWorth(L)), netWorth(L)<0)}
         </div>
+        <div class="money-hub"><button data-money-open="shop"><b>🏎️</b><span>Browse assets</span></button><button data-money-open="bank"><b>🏦</b><span>Bank & loans</span></button><button data-money-open="markets"><b>📈</b><span>Markets</span></button></div>
         ${L.kids.length?secRule('Children')+L.kids.map(k=>`<div class="dossier">
           <div class="portrait"><i class="sprite" style="${spriteStyle(k,1)}"></i></div>
           <div class="d-body"><div class="d-name">${esc(k.name)}</div>
@@ -355,6 +483,8 @@ function paneHtml(which){
           Object.entries(L.portfolio).map(([id,h])=>{
             const stk=STOCKS.find(x=>x.id===id);
             return row(stk?stk.name:id, fmtMoney(Math.round(h.shares*(h.price??h.basis))));}).join('')}</div>`:''}
+        ${Object.keys(L.crypto||{}).length?secRule('Crypto')+`<div class="ledger">${
+          Object.entries(L.crypto).map(([id,h])=>{ const coin=CRYPTO.find(x=>x.id===id); return row(coin?coin.ticker:id,fmtMoney(Math.round(h.units*(h.price??h.basis)))); }).join('')}</div>`:''}
       </div>`;
   }
 
@@ -362,21 +492,22 @@ function paneHtml(which){
     const roster=activePeople(s), gone=alumni(s);
     const card=p=>{
       const t=traitOf(p), r=roleOf(p), tenure=s.year-p.joinedYear;
-      return `<div class="dossier">
-        <div class="portrait"><i class="sprite" style="${spriteStyle(p,1)}"></i></div>
+      return `<button class="dossier dossier-button" data-open-coworker="${p.id}">
+        <div class="portrait tall"><i class="sprite" style="${spriteStyle(p,1)}"></i></div>
         <div class="d-body">
           <div class="d-name">${esc(p.name)}</div>
           <div class="d-role">${esc(r.label)} · ${tenure===0?'joined this year':tenure+' years'}</div>
-          <div class="d-meters">
-            <div class="d-meter"><span>Skill</span><div class="tick tech"><i style="width:${p.skill}%"></i></div></div>
-            <div class="d-meter"><span>Morale</span><div class="tick ${p.morale<35?'risk':'human'}"><i style="width:${p.morale}%"></i></div></div>
-          </div>
+          <div class="team-readout"><span>★ ${p.skill>=75?'Elite':p.skill>=50?'Strong':'Learning'}</span><span>${p.morale>=65?'🔥 Fired up':p.morale>=35?'🙂 Steady':'😤 Ready to quit'}</span></div>
           <span class="d-trait ${t.good?'':'warn'}">${esc(t.label)}</span>
-        </div></div>`;
+        </div></button>`;
     };
-    return `<div class="panel-hd"><div class="p-k">${roster.length} on staff${gone.length?` · ${gone.length} departed`:''}</div>
-      <h2>The room</h2></div>
+    const personal=L.people.filter(p=>!p.faded);
+    const personalCard=p=>`<button class="dossier dossier-button" data-open-person="${p.id}"><div class="portrait tall"><i class="sprite" style="${spriteStyle(p,1)}"></i></div><div class="d-body"><div class="d-name">${esc(p.name)}</div><div class="d-role">${esc(RK[p.kind]||p.kind)}${p.cofounder?' · co-founder':''}</div><div class="heartline">${'♥'.repeat(Math.max(1,Math.ceil(p.closeness/20)))}<i>${'♥'.repeat(Math.max(0,5-Math.ceil(p.closeness/20)))}</i></div></div><span class="dossier-arrow">→</span></button>`;
+    return `<div class="panel-hd"><div class="p-k">${personal.length} personal · ${roster.length} at work</div>
+      <h2>Relationships</h2></div>
       <div class="panel-bd">
+        ${personal.length?personal.map(personalCard).join(''):`<div class="empty">Nobody close yet. Try going out.</div>`}
+        ${secRule('Coworkers')}
         ${roster.length?roster.map(card).join(''):`<div class="empty">Nobody works here yet.</div>`}
         ${gone.length?secRule('Departed')+gone.map(p=>`<div class="dossier gone">
           <div class="portrait"><i class="sprite" style="${spriteStyle(p,1)}"></i></div>
@@ -388,19 +519,17 @@ function paneHtml(which){
 
   if(which==='model'){
     const on=Object.entries(s.flags).filter(([,v])=>v).map(([k])=>k);
-    const meter=(k,label,hi,cls)=>`<div class="ledger-row">
-      <span class="k">${label}</span><span class="v">${Math.round(st[k])}</span></div>
-      <div class="tick ${cls}" style="margin:-4px 0 9px"><i style="width:${Math.min(100,(st[k]/hi)*100)}%"></i></div>`;
+    const modelRow=(icon,label,value,note,bad=false)=>`<div class="model-stat ${bad?'bad':''}"><span class="model-icon">${icon}</span><div><b>${label}</b><small>${note}</small></div><strong>${value}</strong></div>`;
     return `<div class="panel-hd"><div class="p-k">${esc(s.modelName)} · generation ${s.modelGen||1}</div>
-      <h2>The work</h2></div>
+      <h2>Your AI</h2></div>
       <div class="panel-bd">
-        <div class="ledger">
-          ${meter('capability','Capability',260,'tech')}
-          ${meter('alignment','Alignment',100,'human')}
-          ${meter('interpretability','Interpretability',100,'tech')}
-          ${meter('containment','Control',100, st.containment<35?'risk':'vital')}
-          ${meter('autonomy','Autonomy',260, st.autonomy>50?'risk':'tech')}
-          ${meter('compute','Compute',100,'tech')}
+        <div class="model-grid">
+          ${modelRow('🧠','Benchmark score',Math.round(st.capability)+'/260','problems solved')}
+          ${modelRow('🛡️','Safety tests',Math.round(st.alignment)+'/100','passed in evaluation',st.alignment<35)}
+          ${modelRow('🔬','Circuits mapped',Math.round(st.interpretability),'understood by your team')}
+          ${modelRow('🔌','Shutdown drills',Math.round(st.containment)+'/100','successful',st.containment<35)}
+          ${modelRow('🕹️','Solo actions',Math.round(st.autonomy),'without asking',st.autonomy>50)}
+          ${modelRow('🖥️','GPU clusters',Math.max(1,Math.round(st.compute/10)),'under your control')}
         </div>
         ${secRule('The world')}
         <div class="ledger">
@@ -460,6 +589,7 @@ function toast(msg){
 
 function renderEnding(){
   const e=game.state.ending;
+  if(e.tone==='triumph') celebrate(160);
   const flags=Object.entries(game.state.flags).filter(([,v])=>v).map(([k])=>k);
   const moments=[...game.state.log]
     .map(l=>({year:l.year,title:l.title,text:l.text,mag:Object.values(l.deltas||{}).reduce((a,v)=>a+Math.abs(v),0)}))
@@ -526,17 +656,38 @@ function onChoice(i){
   render();
 }
 
+function showLifeResult(res, fallbackTitle, kind='human'){
+  if(!res) return;
+  const last=game.state.log[game.state.log.length-1];
+  pushFeed({kind:kindOf(res.deltas,kind),lbl:last?.title||fallbackTitle,text:res.outcome.text,deltas:res.deltas,faces:newcomerFaces()});
+  sheet={kind:'outcome',title:last?.title||fallbackTitle,text:res.outcome.text,deltas:res.deltas,finance:res.finance};
+  if(res.celebrate) celebrate();
+  if(game.isOver){ screen='ending'; sheet=null; }
+  render();
+}
+
 function onLifeAction(id){
   if(id==='buy_asset'){ sheet={kind:'shop'}; render(); return; }
   if(id==='invest'){ sheet={kind:'invest'}; render(); return; }
   if(id==='sell_stock'){ sheet={kind:'sell'}; render(); return; }
+  if(id==='bank_loan'){ sheet={kind:'bank'}; render(); return; }
+  if(id==='buy_crypto'){ sheet={kind:'crypto'}; render(); return; }
+  if(id==='sell_crypto'){ sheet={kind:'crypto-sell'}; render(); return; }
+  if(id==='date_apps'){
+    snapshotRoster();
+    const res=game.doLifeAction(id);
+    if(!res) return;
+    const last=game.state.log[game.state.log.length-1];
+    pushFeed({kind:'human',lbl:last?.title||'Signal dating',text:res.outcome.text,deltas:res.deltas,faces:newcomerFaces()});
+    tab='activities'; sheet={kind:'dating'};
+    track('dating_app_opened',{age:game.state.age, year:game.state.year});
+    render();
+    return;
+  }
   snapshotRoster();
   const res=game.doLifeAction(id);
-  if(!res) return;
-  const last=game.state.log[game.state.log.length-1];
-  pushFeed({kind:kindOf(res.deltas,'human'),lbl:last.title,text:res.outcome.text,deltas:res.deltas});
-  if(game.isOver){ screen='ending'; sheet=null; }
-  render();
+  track('life_action',{action:id,age:game.state.age,year:game.state.year});
+  showLifeResult(res,'Life', 'human');
 }
 
 function onActivity(id){
@@ -545,6 +696,7 @@ function onActivity(id){
   if(!res) return;
   const last=game.state.log[game.state.log.length-1];
   pushFeed({kind:kindOf(res.deltas,'tech'),lbl:last.title,text:res.outcome.text,deltas:res.deltas,faces:newcomerFaces()});
+  sheet={kind:'outcome',title:last.title,text:res.outcome.text,deltas:res.deltas};
   if(game.isOver){ screen='ending'; sheet=null; }
   render();
 }
@@ -552,15 +704,24 @@ function onActivity(id){
 function onAge(){
   if(game.current){ openEvent(); return; }
   const notes=game.nextYear();
-  for(const n of notes) pushFeed({
-    kind: n.kind==='danger'||n.kind==='warn' ? 'danger' : n.kind==='good' ? 'good' : '',
-    lbl:'', text:n.text });
+  track('age_up',{age:game.state.age,year:game.state.year,kids:game.state.life.kids.length,has_baby_due:Boolean(game.state.life.pregnancy)});
+  for(const n of notes){
+    pushFeed({ kind: n.kind==='danger'||n.kind==='warn' ? 'danger' : n.kind==='good' ? 'good' : '',
+      lbl:'', text:n.text });
+    if(n.celebrate) celebrate();
+  }
   if(game.isOver){ screen='ending'; render(); return; }
   if(game.current){ render(); openEvent(); return; }
   render();
 }
 
-function autosave(){ if(game && screen==='play') saveGame(game,{feed,tab}); }
+function autosave(){
+  if(game && screen==='play') {
+    game.state.life.bank ||= {};
+    game.state.life.bank.lastSavedAt=Date.now();
+    saveGame(game,{feed,tab,actCat,assetCat});
+  }
+}
 
 // ---------------- root ----------------
 function render(){
@@ -590,8 +751,10 @@ function render(){
   app.querySelectorAll('[data-nav]').forEach(b=>{
     b.onclick=()=>{
       const id=b.dataset.nav;
+      if(b.dataset.openCat) actCat=b.dataset.openCat;
       if(id==='life'){ tab='life'; sheet=null; }
       else if(id==='activities'){ tab='activities'; sheet={kind:'activities'}; }
+      else if(id==='job'){ tab='job'; sheet={kind:'job'}; }
       else { tab=id; sheet={kind:'pane',pane:id}; }
       render();
     };
@@ -600,16 +763,41 @@ function render(){
   app.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>onActivity(b.dataset.act));
   app.querySelectorAll('[data-life]').forEach(b=>b.onclick=()=>onLifeAction(b.dataset.life));
   app.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{actCat=b.dataset.cat;render();});
+  app.querySelectorAll('[data-asset-cat]').forEach(b=>b.onclick=()=>{assetCat=b.dataset.assetCat;render();});
+  app.querySelectorAll('[data-asset-detail]').forEach(b=>b.onclick=()=>{sheet={kind:'asset-detail',assetId:b.dataset.assetDetail};render();});
   app.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{
-    const r=game.doLifeAction('buy_asset',{assetId:b.dataset.buy});
-    if(r){ pushFeed({kind:'human',lbl:'Acquired',text:r.outcome.text,deltas:r.deltas}); sheet=null; render(); }});
+    snapshotRoster(); const r=game.doLifeAction('buy_asset',{assetId:b.dataset.buy}); showLifeResult(r,'Acquired','human'); });
+  app.querySelectorAll('[data-finance]').forEach(b=>b.onclick=()=>{
+    snapshotRoster(); const r=game.runLifeHandler('financeAsset',{assetId:b.dataset.finance},'Bank financing'); showLifeResult(r,'Bank financing','human'); });
+  app.querySelectorAll('[data-loan]').forEach(b=>b.onclick=()=>{
+    snapshotRoster(); const r=game.runLifeHandler('bankLoan',{amount:+b.dataset.loan},'Bank loan'); showLifeResult(r,'Bank loan','human'); });
   app.querySelectorAll('[data-invest]').forEach(b=>b.onclick=()=>{
     const amt=Math.max(1000,Math.round(game.state.life.cash*0.25));
-    const r=game.doLifeAction('invest',{stockId:b.dataset.invest,amount:amt});
-    if(r){ pushFeed({kind:'',lbl:'Invested',text:r.outcome.text,deltas:r.deltas}); sheet=null; render(); }});
+    snapshotRoster(); const r=game.doLifeAction('invest',{stockId:b.dataset.invest,amount:amt}); showLifeResult(r,'Invested',''); });
   app.querySelectorAll('[data-sell]').forEach(b=>b.onclick=()=>{
-    const r=game.doLifeAction('sell_stock',{stockId:b.dataset.sell});
-    if(r){ pushFeed({kind:'',lbl:'Sold',text:r.outcome.text,deltas:r.deltas}); sheet=null; render(); }});
+    snapshotRoster(); const r=game.doLifeAction('sell_stock',{stockId:b.dataset.sell}); showLifeResult(r,'Sold',''); });
+  app.querySelectorAll('[data-crypto]').forEach(b=>b.onclick=()=>{
+    const amt=Math.max(250,Math.round(game.state.life.cash*.15)); snapshotRoster();
+    const r=game.runLifeHandler('buyCrypto',{coinId:b.dataset.crypto,amount:amt},'Crypto exchange'); showLifeResult(r,'Crypto exchange',''); });
+  app.querySelectorAll('[data-crypto-sell]').forEach(b=>b.onclick=()=>{
+    snapshotRoster(); const r=game.runLifeHandler('sellCrypto',{coinId:b.dataset.cryptoSell},'Crypto exchange'); showLifeResult(r,'Crypto exchange',''); });
+  app.querySelectorAll('[data-open-person]').forEach(b=>b.onclick=()=>{sheet={kind:'person',personId:b.dataset.openPerson};render();});
+  app.querySelectorAll('[data-open-coworker]').forEach(b=>b.onclick=()=>{sheet={kind:'coworker',workerId:b.dataset.openCoworker};render();});
+  app.querySelectorAll('[data-money-open]').forEach(b=>{
+    b.onclick=()=>{ sheet={kind:b.dataset.moneyOpen}; render(); };
+  });
+  app.querySelectorAll('[data-market-open]').forEach(b=>b.onclick=()=>{sheet={kind:b.dataset.marketOpen};render();});
+  app.querySelectorAll('[data-rel]').forEach(b=>b.onclick=()=>{snapshotRoster(); const r=game.interactWithPerson(b.dataset.person,b.dataset.rel); track('relationship_action',{action:b.dataset.rel,age:game.state.age,year:game.state.year}); showLifeResult(r,'Relationship','human');});
+  app.querySelectorAll('[data-befriend]').forEach(b=>b.onclick=()=>{snapshotRoster(); const r=game.befriendCoworker(b.dataset.befriend); showLifeResult(r,'Relationship','human');});
+  app.querySelectorAll('[data-share-asset]').forEach(b=>b.onclick=()=>{sheet={kind:'asset-share',assetId:b.dataset.shareAsset};render();});
+  app.querySelectorAll('[data-copy-flex]').forEach(b=>b.onclick=async()=>{
+    const a=ASSETS.find(x=>x.id===b.dataset.copyFlex); const text=`${game.state.name} just bought a ${a?.name||'new asset'} in DEVLIFE. Age ${game.state.age} · Net worth ${fmtMoney(netWorth(game.state.life))}.`;
+    try { await navigator.clipboard.writeText(text); toast('Caption copied'); } catch { toast('Could not copy'); }
+  });
+  app.querySelectorAll('[data-x-share]').forEach(b=>b.onclick=()=>{
+    const a=ASSETS.find(x=>x.id===b.dataset.xShare); const text=`${game.state.name} just bought a ${a?.name||'new asset'} in DEVLIFE. Age ${game.state.age} · Net worth ${fmtMoney(netWorth(game.state.life))}.`;
+    window.open(`https://x.com/intent/post?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+  });
 
   const ok=$('#ok'); if(ok) ok.onclick=()=>{ sheet=null; if(game.current){ render(); openEvent(); } else render(); };
   const mClose=$('#m-close'); if(mClose) mClose.onclick=()=>{sheet=null;render();};
@@ -638,6 +826,7 @@ document.addEventListener('keydown',e=>{
 
 let _rz; addEventListener('resize',()=>{ clearTimeout(_rz); _rz=setTimeout(()=>{ if(screen==='play') render(); },180); });
 
+initAnalytics();
 const shared = readSharedFromLocation();
 if(shared){ sharedData=shared; screen='shared'; }
 else {
@@ -645,7 +834,7 @@ else {
   if(save){
     const restored=restoreGame(Game,save);
     if(restored && !restored.state.dead){
-      game=restored; feed=save.ui?.feed||[]; tab=save.ui?.tab||'life'; screen='play';
+      game=restored; feed=save.ui?.feed||[]; tab=save.ui?.tab||'life'; actCat=save.ui?.actCat||'career'; assetCat=save.ui?.assetCat||'property'; screen='play';
       snapshotRoster();
       if(game.current) sheet={kind:'event',ev:game.current};
     } else clearSave();

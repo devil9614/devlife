@@ -14,6 +14,26 @@ export const GIVEN_NAMES = [
   'Akira','Beatriz','Cyrus','Dilnoza','Eero','Fanny','Goran','Hilde','Iris','Jonas','Kaia','Lars','Maja',
   'Niamh','Otto','Paloma','Rasmus','Sana','Tove','Ugo','Valentina','Wiktor','Yohan','Zainab',
 ];
+
+// Life relationships need visual identity, not just a name that suggests one.
+// The legacy atlas contains only masculine-presenting sprites; these names and
+// generated avatar frames make the relationship layer visibly more varied.
+export const FEMININE_GIVEN_NAMES = [
+  'Mira','Ada','Priya','Fatima','Leila','Sasha','Ines','Nora','Anya','Amara','Clara','Mei','Sofia','Lena','Zara','Aiko','Freya','Camila','Inga','Petra','Rosa','Ulla','Vera','Bianca','Dara','Farida','Hana','Jelena','Lucia','Nadia','Pilar','Rania','Thandi','Valentina','Xiomara','Yusra','Zeynep','Beatriz','Dilnoza','Fanny','Hilde','Iris','Kaia','Maja','Niamh','Paloma','Sana','Tove','Zoya',
+];
+export const MASCULINE_GIVEN_NAMES = GIVEN_NAMES.filter(n => !FEMININE_GIVEN_NAMES.includes(n));
+export const FEMME_AVATARS = [
+  { spriteAsset:'femme-pack-one.png', avatarFrame:0, avatarFrames:5 },
+  { spriteAsset:'femme-pack-one.png', avatarFrame:1, avatarFrames:5 },
+  { spriteAsset:'femme-pack-one.png', avatarFrame:2, avatarFrames:5 },
+  { spriteAsset:'femme-pack-one.png', avatarFrame:3, avatarFrames:5 },
+  { spriteAsset:'femme-pack-one.png', avatarFrame:4, avatarFrames:5 },
+  { spriteAsset:'femme-pack-two.png', avatarFrame:0, avatarFrames:5 },
+  { spriteAsset:'femme-pack-two.png', avatarFrame:1, avatarFrames:5 },
+  { spriteAsset:'femme-pack-two.png', avatarFrame:2, avatarFrames:5 },
+  { spriteAsset:'femme-pack-two.png', avatarFrame:3, avatarFrames:5 },
+  { spriteAsset:'femme-pack-two.png', avatarFrame:4, avatarFrames:5 },
+];
 export const FAMILY_NAMES = [
   'Reyes','Okonkwo','Lindqvist','Baptiste','Nakamura','Varga','Osei','Krishnan','Moreau',
   'Dvorak','Silva','Haddad','Novak','Ferreira','Adeyemi','Solberg','Bianchi','Ilves','Mensah','Costa',
@@ -83,6 +103,20 @@ export function makePerson(rng, { role = null, quality = null, taken = null } = 
 // Portrait atlas: 1000 front-facing 32x64 frames in a 40-column grid.
 export const SPRITE = { cols: 40, w: 32, h: 64, count: 1000, src: '/assets/people.png' };
 export function spriteStyle(p, scale = 1) {
+  if (p.spriteAsset) {
+    // The supplied portrait packs contain five evenly-sized vertical frames.
+    // Keep the narrow full-body proportion instead of stretching it into the
+    // square legacy portrait atlas.
+    const frames = p.avatarFrames || 2;
+    const frame = Math.max(0, Math.min(frames - 1, p.avatarFrame || 0));
+    const pos = frames > 1 ? `${(frame / (frames - 1)) * 100}%` : '0%';
+    const width = scale > 1 ? 67 : 32;
+    const height = scale > 1 ? 112 : 54;
+    const zoom = scale > 1 ? 1.08 : 1.15;
+    return `background-image:url(/assets/${p.spriteAsset});background-position:${pos} 0;`
+      + `background-size:${frames * 100}% 100%;width:${width}px;height:${height}px;`
+      + `transform:translateX(-50%) scale(${zoom});transform-origin:center top;`;
+  }
   const i = (p.sprite ?? 0) % SPRITE.count;
   const x = (i % SPRITE.cols) * SPRITE.w, y = Math.floor(i / SPRITE.cols) * SPRITE.h;
   return `background-image:url(${SPRITE.src});`

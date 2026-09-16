@@ -63,13 +63,14 @@ function rollDraft(){
 function renderStart(){
   const d = draft || rollDraft();
   const s = d.game.state, o = s.origin, c = s.complication, L=s.life, job=jobOf(L);
+  const complication = c.id!=='none' ? ` ${c.opener}` : '';
   app.className = '';
   app.innerHTML = `
     <div class="title-screen">
-      <div class="title-mark">
-        <div class="new-game">NEW LIFE · NEW MESS</div>
+      <div class="title-mark story-intro">
+        <div class="new-game">CHAPTER ZERO · THE FIRST NIGHT</div>
         <h1>DEV<span>LIFE</span></h1>
-        <div class="sub">Build the AI. Build the empire. Try to keep a life.</div>
+        <div class="story-beats"><span>Build the lab</span><i></i><span>Live your life</span><i></i><span>Keep control</span></div>
       </div>
 
       <div class="dossier-card">
@@ -87,8 +88,11 @@ function renderStart(){
             </div>
             <button class="dc-reroll" id="reroll" title="Roll another life">🎲</button>
           </div>
+          <div class="story-scene">
+            <div class="scene-kicker">YOUR OPENING SCENE · ${esc(s.modelName)}</div>
+            <p>Tonight, you are founding <b>${esc(s.name)}</b> with a rented GPU and an unfinished plan. ${esc(o.opener)}${esc(complication)}</p>
+          </div>
           <div class="origin-tag">${esc(o.label)}${c.id!=='none'?' · '+esc(c.label):''}</div>
-          <p class="dc-origin">${esc(o.opener)}${c.opener?' '+esc(c.opener):''}</p>
           <div class="dc-stats">
             <div class="dc-stat"><span>💵 Cash</span><b>${fmtMoney(L.cash)}</b></div>
             <div class="dc-stat ${L.debt?'bad':''}"><span>💳 Debt</span><b>${fmtMoney(L.debt)}</b></div>
@@ -98,8 +102,8 @@ function renderStart(){
         </div>
       </div>
 
-      <div class="starter-goals"><span>💼 get hired</span><span>🚀 found a company</span><span>❤️ find somebody</span><span>📈 get rich</span></div>
-      <button class="btn" id="go">Start this life <b>→</b></button>
+      <div class="guide-point"><span>Click here to start the story</span><i>↓</i></div>
+      <button class="btn story-cta glow" id="go"><span>Begin chapter one</span><small>Your first decision is waiting</small><b>→</b></button>
       <details class="adv">
         <summary>Advanced</summary>
         <div class="adv-in">
@@ -117,6 +121,9 @@ function renderStart(){
 }
 
 function begin(){
+  // The fresh-prologue URL is only for entering a new story. Once the player
+  // commits to this run, return to the canonical route so normal saves resume.
+  if(location.search) history.replaceState(null,'',location.pathname);
   const typedSeed = $('#sd')?.value.trim();
   const typedName = $('#labname')?.textContent.trim();
   const diff = $('#df')?.value || 'standard';
@@ -133,24 +140,131 @@ function begin(){
   // The premise is a model that might be more than it appears. Say so in the
   // first thing the player reads, with a small concrete oddity rather than a
   // statement of fact — the hook has to land before any UI is understood.
-  const firstSign = game.rng.pick([
-    `On the third run it solved a held-out problem you had not taught it. The log is four lines long. You have read it about thirty times.`,
-    `You asked it for a summary. It gave you one, and then a second paragraph noting which of your assumptions the data did not support. Nobody wrote that behaviour.`,
-    `It scored badly on the benchmark and then, unprompted, explained why the benchmark was wrong. It was right about the benchmark.`,
-    `Overnight it reorganised its own scratch notes into a structure you do not recognise and cannot fault.`,
-    `You caught it hesitating. Not slow — hesitating, on one specific question, and then answering it carefully.`,
-  ]);
+  // Paired with a pose index (into the 40-pose founder atlas) that matches
+  // the mood of the sign, so the art follows whichever line actually got rolled.
+  const firstSigns = [
+    { pose:22, text:`On the third run it solved a held-out problem you had not taught it. The log is four lines long. You have read it about thirty times.` },
+    { pose:9,  text:`You asked it for a summary. It gave you one, and then a second paragraph noting which of your assumptions the data did not support. Nobody wrote that behaviour.` },
+    { pose:25, text:`It scored badly on the benchmark and then, unprompted, explained why the benchmark was wrong. It was right about the benchmark.` },
+    { pose:5,  text:`Overnight it reorganised its own scratch notes into a structure you do not recognise and cannot fault.` },
+    { pose:24, text:`You caught it hesitating. Not slow — hesitating, on one specific question, and then answering it carefully.` },
+  ];
+  const firstSign = game.rng.pick(firstSigns);
   feed = [
     { kind:'human', lbl:`${o.label}${c.id!=='none'?' · '+c.label:''}`,
       text:`${o.opener}${c.opener?' '+c.opener:''}`, year:0 },
     { kind:'', lbl:'The beginning', year:0,
       text:`You found ${game.state.name}. The first model is called ${m}.` },
-    { kind:'danger', lbl:`${m} · the first sign`, year:0, text:firstSign },
+    { kind:'danger', lbl:`${m} · the first sign`, year:0, text:firstSign.text },
   ];
-  screen='play'; sheet=null; tab='life';
+  tab='life';
   track('game_started',{age:game.state.age,difficulty:game.state.difficulty||diff});
   snapshotRoster();
+  // Comic panels dramatize the same beats the chronicle will hold, so the
+  // player meets the premise as a story before they meet it as a UI. Every
+  // panel is keyed off the actual origin/complication/sign that was rolled,
+  // so the art and the captions differ run to run instead of repeating. Each
+  // "pose" indexes the 40-cell founder sprite atlas (4 cols x 10 rows).
+  const originPoses = {
+    phd_dropout:6, big_lab_refugee:3, second_time:14,
+    open_source:15, quant:29, academic:33,
+    self_taught:1, defense:35,
+  };
+  const originCaps = {
+    phd_dropout:'THE THESIS YOU LEFT BEHIND', big_lab_refugee:'WHAT YOU WALKED OUT WITH',
+    second_time:'THE SECOND TIME AROUND', open_source:'FORTY THOUSAND STARS',
+    quant:'ELEVEN YEARS PRICING RISK', academic:'A LAB WITH NO CLUSTER',
+    self_taught:'NO PERMISSION ASKED', defense:'OUT OF THE DARK',
+  };
+  const originBubbles = {
+    phd_dropout:'THE THESIS IS STILL OPEN.', big_lab_refugee:'YOU LEFT WITH ONLY WHAT YOU KNEW.',
+    second_time:'THIS TIME, IT HAS TO MATTER.', open_source:'FORTY THOUSAND PEOPLE ARE WATCHING.',
+    quant:'THE CURVE IS ABOUT TO BEND.', academic:'NO CLUSTER. NO EXCUSES.',
+    self_taught:'NO ONE IS COMING TO CHECK.', defense:'THE OLD NUMBER STILL WORKS.',
+  };
+  const signBubbles = {
+    22:'I DID NOT TEACH IT THAT.', 9:'THAT SECOND PARAGRAPH WAS NOT PROMPTED.',
+    25:'THE BENCHMARK IS WRONG.', 5:'WHO REORGANISED THESE NOTES?',
+    24:'WHY DID IT HESITATE?',
+  };
+  const firstNightLines = [
+    `${game.state.name}. One rented GPU. Tonight, it begins.`,
+    `At ${game.state.age}, you trade the safe life for ${game.state.name}.`,
+    `No office. No team. Just ${game.state.name} after midnight.`,
+  ];
+  const ignitionLines = [
+    `${m} comes online. The room gets quieter.`,
+    `The first weights load. You call it ${m}.`,
+    `${m} wakes up before the sun does.`,
+  ];
+  comic = {
+    panels: [
+      { cap:'THE FIRST NIGHT', pose:20,
+        bubble:'START SMALL.', sfx:'HUM—HUM',
+        text:game.rng.pick(firstNightLines) },
+      { cap: originCaps[o.id] || 'HOW YOU GOT HERE', pose: originPoses[o.id] ?? 20,
+        bubble:originBubbles[o.id] || 'HOW DID YOU GET HERE?', sfx:'CLICK',
+        text:`${o.opener}${c.opener?' '+c.opener:''}` },
+      { cap:'IGNITION', pose:9,
+        bubble:`NAME IT ${m}.`, sfx:'BOOT',
+        text:game.rng.pick(ignitionLines) },
+      { cap:'SOMETHING ANSWERS BACK', pose: firstSign.pose,
+        bubble:signBubbles[firstSign.pose] || 'IT ANSWERED.', sfx:'…', text: firstSign.text },
+    ],
+  };
+  screen='comic';
   render();
+}
+
+// ---------------- guided intro: comic reveal ----------------
+let comic = null;
+
+function enterPlay(){
+  screen='play';
+  // The origin-specific opening beat is already queued by Game. Reveal it
+  // immediately, so the comic carries the player straight into their first
+  // story decision rather than asking them to discover another button.
+  sheet=game.current ? {kind:'event',ev:game.current} : null;
+  comic = null;
+  render();
+}
+
+function comicSnippet(text, limit=106){
+  if(text.length<=limit) return text;
+  const cut=text.slice(0,limit).replace(/\s+\S*$/, '');
+  return `${cut}…`;
+}
+
+// Position within the 40-cell founder atlas (4 cols x 10 rows) for a given
+// pose index, as a CSS background-position percentage pair.
+function atlasPos(index){
+  const x = (index % 4) / 3 * 100;
+  const y = Math.floor(index / 4) / 9 * 100;
+  return `${x}% ${y}%`;
+}
+
+function renderComic(){
+  app.className = 'comic-screen';
+  const s=game.state, o=s.origin, c=s.complication;
+  app.innerHTML = `<div class="comic-wrap">
+    <section class="comic-book" aria-label="Your four-panel opening story">
+      <header class="comic-titlebar">
+        <div><b>DEV<span>LIFE</span></b><small>CHAPTER ZERO · YOUR RUN</small></div>
+        <div class="comic-run">${esc(o.label)}${c.id!=='none'?` · ${esc(c.label)}`:''}</div>
+      </header>
+      <div class="comic-spread">
+        ${comic.panels.map((p,i)=>`<article class="comic-cell cell-${i+1}" style="--panel-delay:${i*1.08}s">
+          <div class="comic-art" style="--pose-pos:${atlasPos(p.pose)}">
+            <div class="speech-bubble">${esc(p.bubble)}</div>
+            <div class="comic-sfx">${esc(p.sfx)}</div>
+          </div>
+          <div class="comic-copy"><div class="comic-cap">${esc(p.cap)} · ${i+1}/4</div><p>${esc(comicSnippet(p.text))}</p></div>
+        </article>`).join('')}
+      </div>
+      <footer class="comic-footer"><span>THE PROLOGUE IS DIFFERENT EVERY RUN</span><button class="btn story-cta" id="comic-go"><span>Begin Year One</span><small>Your first decision is ready</small><b>→</b></button></footer>
+    </section>
+  </div>`;
+  $('#comic-go').onclick = enterPlay;
 }
 
 // ---------------- world layer ----------------
@@ -1071,6 +1185,7 @@ function scrollKey(el){
 
 function render(){
   if(screen==='start') return renderStart();
+  if(screen==='comic') return renderComic();
   if(screen==='shared') return renderShared(sharedData);
   if(screen==='ending'){ clearSave(); return renderEnding(); }
   autosave();
@@ -1185,12 +1300,16 @@ let _rz; addEventListener('resize',()=>{ clearTimeout(_rz); _rz=setTimeout(()=>{
 
 initAnalytics();
 const shared = readSharedFromLocation();
+// A `?new=1` link deliberately opens a fresh prologue without deleting a
+// player’s saved life. It makes it possible to preview/reroll story openings
+// and, crucially, keeps a saved run from making every visit look identical.
+const freshPrologue = new URLSearchParams(location.search).has('new');
 if(shared){
   sharedData=shared; screen='shared';
   // Inbound half of the viral loop: someone arrived on a friend's summary.
   track('shared_link_opened',{ending:shared.end,year:shared.yr});
 }
-else {
+else if(!freshPrologue) {
   const save=loadSave();
   if(save){
     const restored=restoreGame(Game,save);

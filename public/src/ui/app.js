@@ -769,7 +769,7 @@ function summaryHtml({tone,title,text,year,decisions,moments,flags,isLive,seed,p
       <div class="sc-fig"><b>${state?Math.round(state.equity??100):100}%</b><span>Still yours</span></div>
     </div>
     ${hidden>12?`<div class="sc-note">${esc(modelName)} was hiding ${Math.round(hidden)} points of capability from you.</div>`:''}
-    <div class="sc-foot">trydevlife.vercel.app</div>
+    <div class="sc-foot">devlife.logidev.in</div>
   </div>`;
 
   // The rap sheet. A cautious run produces nothing here and that is the joke;
